@@ -103,7 +103,7 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
             store_slides_hdfs(filename, slide_name, num_tiles_batch, tiles_batch, tile_size)
             tiles_neg += len(tiles_batch)
             LOGGER.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides, len(tiles_batch)))
-            LOGGER.info('neg tiles total: ', tiles_neg)
+            LOGGER.info('pos tiles total: {}'.format(tiles_neg))
 
             # exit if reaching number of tiles generated aimed for
             if early_stopping > 0:
