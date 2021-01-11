@@ -5,19 +5,15 @@ preprocessing of whole-slide images of the CAMELYON data sets.
 """
 
 from collections import namedtuple
-from datetime import datetime
 import fnmatch
 import logging
-import numpy as np
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from progress.bar import IncrementalBar
 from typing import Dict
 
 
 Point = namedtuple('Point', 'x y')
-# If True, display additional NumPy array stats (min, max, mean, is_binary).
-ADDITIONAL_NP_STATS = False
 
 
 class LogMessage(object):
@@ -206,161 +202,3 @@ class TileMap:
 
         self.image = draw_polygon(self.image, rel_poly, fill=self._fill,
                                   outline=self._outline)
-
-
-class Time:
-    """
-    Class for displaying elapsed time.
-    FROM DEEPHISTOPATH
-    """
-
-    def __init__(self):
-        self.start = datetime.now()
-
-    def elapsed_display(self):
-        time_elapsed = self.elapsed()
-        print("Time elapsed: " + str(time_elapsed))
-
-    def elapsed(self):
-        self.end = datetime.now()
-        time_elapsed = self.end - self.start
-        return time_elapsed
-
-
-def np_info(np_arr, name=None, elapsed=None):
-    """
-    Display information (shape, type, max, min, etc) about a NumPy array.
-    FROM DEEPHISTOPATH
-    Args:
-    np_arr: The NumPy array.
-    name: The (optional) name of the array.
-    elapsed: The (optional) time elapsed to perform a filtering operation.
-    """
-
-    if name is None:
-        name = "NumPy Array"
-    if elapsed is None:
-        elapsed = "---"
-
-    if ADDITIONAL_NP_STATS is False:
-        print("%-20s | Time: %-14s  Type: %-7s Shape: %s" % (name, str(elapsed), np_arr.dtype, np_arr.shape))
-    else:
-        max = np_arr.max()
-        min = np_arr.min()
-        mean = np_arr.mean()
-        is_binary = "T" if (np.unique(np_arr).size == 2) else "F"
-        print("%-20s | Time: %-14s Min: %6.2f  Max: %6.2f  Mean: %6.2f  Binary: %s  Type: %-7s Shape: %s" % (
-            name, str(elapsed), min, max, mean, is_binary, np_arr.dtype, np_arr.shape))
-
-
-def pil_to_np_rgb(pil_img):
-    """
-    Convert a PIL Image to a NumPy array.
-    FROM DEEPATHISTO
-    Note that RGB PIL (w, h) -> NumPy (h, w, 3).
-
-    Args:
-    pil_img: The PIL Image.
-
-    Returns:
-    The PIL image converted to a NumPy array.
-    """
-    t = Time()
-    rgb = np.asarray(pil_img)
-    np_info(rgb, "RGB", t.elapsed())
-    return rgb
-
-
-def np_to_pil(np_img):
-    """
-    Convert a NumPy array to a PIL Image.
-    FROM DEEPATHISTO
-    Args:
-    np_img: The image represented as a NumPy array.
-
-    Returns:
-     The NumPy array converted to a PIL Image.
-    """
-    if np_img.dtype == "bool":
-        np_img = np_img.astype("uint8") * 255
-    elif np_img.dtype == "float64":
-        np_img = (np_img * 255).astype("uint8")
-    return Image.fromarray(np_img)
-
-
-def display_img(np_img, text=None, font_path="/Library/Fonts/Arial Bold.ttf", size=48, color=(255, 0, 0),
-                background=(255, 255, 255), border=(0, 0, 0), bg=False):
-    """
-    Convert a NumPy array to a PIL image, add text to the image, and display the image.
-    FROM DEEPATHISTO
-    Args:
-    np_img: Image as a NumPy array.
-    text: The text to add to the image.
-    font_path: The path to the font to use.
-    size: The font size
-    color: The font color
-    background: The background color
-    border: The border color
-    bg: If True, add rectangle background behind text
-    """
-    result = np_to_pil(np_img)
-    # if gray, convert to RGB for display
-    if result.mode == 'L':
-        result = result.convert('RGB')
-    draw = ImageDraw.Draw(result)
-    if text is not None:
-        font = ImageFont.truetype(font_path, size)
-        if bg:
-            (x, y) = draw.textsize(text, font)
-            draw.rectangle([(0, 0), (x + 5, y + 4)], fill=background, outline=border)
-        draw.text((2, 0), text, color, font=font)
-    result.show()
-
-
-def mask_rgb(rgb, mask):
-    """
-    Apply a binary (T/F, 1/0) mask to a 3-channel RGB image and output the result.
-    FROM DEEPATHISTO
-    Args:
-    rgb: RGB image as a NumPy array.
-    mask: An image mask to determine which pixels in the original image should be displayed.
-
-    Returns:
-    NumPy array representing an RGB image with mask applied.
-    """
-    t = Time()
-    result = rgb * np.dstack([mask, mask, mask])
-    np_info(result, "Mask RGB", t.elapsed())
-    return result
-
-
-def mask_percent(np_img):
-    """
-    Determine the percentage of a NumPy array that is masked (how many of the values are 0 values).
-    FROM DEEPHISTOPATH
-    Args:
-    np_img: Image as a NumPy array.
-
-    Returns:
-    The percentage of the NumPy array that is masked.
-    """
-    if (len(np_img.shape) == 3) and (np_img.shape[2] == 3):
-        np_sum = np_img[:, :, 0] + np_img[:, :, 1] + np_img[:, :, 2]
-        mask_percentage = 100 - np.count_nonzero(np_sum) / np_sum.size * 100
-    else:
-        mask_percentage = 100 - np.count_nonzero(np_img) / np_img.size * 100
-    return mask_percentage
-
-
-def tissue_percent(np_img):
-    """
-    Determine the percentage of a NumPy array that is tissue (not masked).
-    FROM DEEPHISTOPATH
-    Args:
-    np_img: Image as a NumPy array.
-
-    Returns:
-    The percentage of the NumPy array that is tissue.
-    """
-    return 100 - mask_percent(np_img)
-
