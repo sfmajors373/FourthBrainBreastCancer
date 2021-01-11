@@ -22,7 +22,7 @@ share/python-wheels/
 
 
 # Environments
-.ipynb_checkpoints
+.ipynb_checkpoints/
 .idea/
 .env
 .venv
