@@ -34,11 +34,12 @@ def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, 
     tiles_pos = 0
     overlap = int(tile_size * percent_overlap)
     for i in range(num_slides):
-        slide_name = mgr.annotated_slides[i].name
-        LOGGER.info("Working on {}".format(slide_name))
+        slide = mgr.annotated_slides[i]
+        # slide_name = mgr.annotated_slides[i].name
+        LOGGER.info("Working on {}".format(slide.name))
         try:
             # create a new and unconsumed tile iterator
-            tile_iter = split_positive_slide(mgr.annotated_slides[i], level=level,
+            tile_iter = split_positive_slide(slide, level=level,
                                              tile_size=tile_size, overlap=overlap,
                                              poi_threshold=poi_tumor)
 
@@ -49,13 +50,13 @@ def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, 
                 if len(tiles_batch) > max_tiles_per_slide : break
                 tiles_batch.append(tile)
 
-            filename = build_filename(slide_name, tile_size, poi_tumor, level)
+            filename = build_filename(slide.name, tile_size, poi_tumor, level)
             num_tiles_batch = len(tiles_batch)
 
-            store_slides_hdfs(filename, slide_name, num_tiles_batch, tiles_batch, tile_size)
+            store_slides_hdfs(filename, slide.name, num_tiles_batch, tiles_batch, tile_size)
             tiles_pos += len(tiles_batch)
             LOGGER.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides, len(tiles_batch)))
-            LOGGER.info('pos tiles total: {}'.format(tiles_pos))
+            LOGGER.info('positive tiles total: {}'.format(tiles_pos))
 
             # exit if reaching number of tiles generated aimed for
             if early_stopping > 0:
@@ -71,12 +72,12 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
     tiles_neg = 0
     overlap = int(tile_size * percent_overlap)
     for i in range(num_slides):
-        slide_name = mgr.negative_slides[i].name
-        LOGGER.info("Working on {}".format(slide_name))
+        slide = mgr.negative_slides[i]
+        LOGGER.info("Working on {}".format(slide.name))
         try:
 
             # load the slide into numpy array
-            arr = np.asarray(mgr.negative_slides[i].get_full_slide(level=4))
+            arr = np.asarray(slide.get_full_slide(level=4))
             # convert it to gray scale
             arr_gray = rgb2gray(arr)
             # calculate otsu threshold
@@ -84,7 +85,7 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
 
             # create a new and unconsumed tile iterator
             # because we have so many  negative slides we do not use overlap
-            tile_iter = split_negative_slide(mgr.negative_slides[i], level=level,
+            tile_iter = split_negative_slide(slide, level=level,
                                              otsu_threshold=threshold,
                                              tile_size=tile_size, overlap=overlap,
                                              poi_threshold=poi)
@@ -97,13 +98,13 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
                     break
                 tiles_batch.append(tile)
 
-            filename = build_filename(slide_name, tile_size, poi, level)
+            filename = build_filename(slide.name, tile_size, poi, level)
             num_tiles_batch = len(tiles_batch)
 
-            store_slides_hdfs(filename, slide_name, num_tiles_batch, tiles_batch, tile_size)
+            store_slides_hdfs(filename, slide.name, num_tiles_batch, tiles_batch, tile_size)
             tiles_neg += len(tiles_batch)
             LOGGER.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides, len(tiles_batch)))
-            LOGGER.info('pos tiles total: {}'.format(tiles_neg))
+            LOGGER.info('negative tiles total: {}'.format(tiles_neg))
 
             # exit if reaching number of tiles generated aimed for
             if early_stopping > 0:
@@ -121,8 +122,8 @@ def main():
 
     parser.add_argument('--magnification_level', '-ml', dest='magnification_level', action='store', default=1,
                         type=int, help='1 to 8')
-    parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=256,
-                        type=int, help='1 to 8')
+    parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=312,
+                        type=int, help='size of tiles - should be more than final tile size')
     parser.add_argument('--poi', '-p', dest='poi', action='store', default=0.2,
                         type=float, help='20% of negative tiles must contain tissue (in contrast to slide background)')
     parser.add_argument('--poi_tumor', '-poit', dest='poi_tumor', action='store', default=0.6,
