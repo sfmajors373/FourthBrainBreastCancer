@@ -38,20 +38,19 @@ base_directory/dataset_folder
 
 base_directory
 ├── dataset_folder
-    ├── training
-    │   ├── lesion_annotations
-    │   │   └── tumor_001.xml
-    │   ├── normal
-    │   │   └── normal_001.tif
-    │   └── tumor
-    │       └── tumor_001.tif
-    │
-    └── testing
-        ├── lesion_annotations
-        │   └── test_001.xml
-        └── images
-            └── test_001.tif
-
+    ├── training
+    │   ├── lesion_annotations
+    │   │   └── tumor_001.xml
+    │   ├── normal
+    │   │   └── normal_001.tif
+    │   └── tumor
+    │       └── tumor_001.tif
+    │
+    └── testing
+        ├── lesion_annotations
+        │   └── test_001.xml
+        └── images
+            └── test_001.tif
 
 Implemented so far:
 
