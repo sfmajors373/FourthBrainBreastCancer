@@ -1,5 +1,6 @@
 import numpy as np
 import h5py
+import json
 import math
 from os import listdir
 from os.path import isfile, join
@@ -7,6 +8,7 @@ from os.path import isfile, join
 
 def hdfs_filepaths(folder):
     return [join(folder, f) for f in listdir(folder) if isfile(join(folder, f))]
+
 
 def pos_neg_filenames(folder):
     pos, neg = list(), list()
@@ -30,7 +32,7 @@ def pos_neg_filenames(folder):
 def combine_datasets(filenames):
     i = 0
     for f in filenames:
-        data_file = h5py.File(f,'r',libver='latest',swmr=True)
+        data_file = h5py.File(f, 'r', libver='latest', swmr=True)
         key = list(data_file.keys())[0]
         if i == 0:
             dset = data_file[key]
@@ -38,6 +40,25 @@ def combine_datasets(filenames):
             dset = np.concatenate((dset, data_file[key]), axis=0)
         i += 1
     return dset
+
+
+def save_color_normalization_values(mean, std, filename="mean_std.json"):
+    data = {"mean": mean, "std": std}
+    with open(filename, 'w') as json_file:
+        json.dump(data, json_file)
+
+
+def load_color_normalization_values(filename):
+    if filename is None:
+        return [0., 0., 0.], [1., 1., 1.]
+    else:
+        try:
+            with open(filename, 'r') as json_file:
+                data = json.load(json_file)
+            return data['mean'], data['std']
+        except IOError:
+            print("File not accessible")
+            return [0., 0., 0.], [1., 1., 1.]
 
 
 class TissueDataset:
@@ -81,7 +102,9 @@ class TissueDataset:
     def __get_random_negative_tiles(self, number_tiles):
         return self.__get_tiles_from_path(self.neg_dataset, number_tiles), np.zeros((number_tiles))
 
-    def generator(self, num_neg=10, num_pos=10, data_augm=False, mean=[0., 0., 0.], std=[1., 1., 1.]):
+    def generator(self, num_neg=10, num_pos=10, data_augm=False, color_normalization_file="CAMELYON16_color_normalization.json"):
+        mean, std = load_color_normalization_values(color_normalization_file)
+
         while True:
             x, y = self.get_batch(num_neg, num_pos, data_augm)
             for i in [0, 1, 2]:
@@ -95,8 +118,10 @@ class TissueDataset:
         y = np.concatenate((y_p, y_n), axis=0)
         if data_augm:
             ### some data augmentation mirroring / rotation
-            if np.random.randint(0, 2): x = np.flip(x, axis=1)
-            if np.random.randint(0, 2): x = np.flip(x, axis=2)
+            if np.random.randint(0, 2):
+                x = np.flip(x, axis=1)
+            if np.random.randint(0, 2):
+                x = np.flip(x, axis=2)
             x = np.rot90(m=x, k=np.random.randint(0, 4), axes=(1, 2))
         ### randomly arrange in order
         p = np.random.permutation(len(y))

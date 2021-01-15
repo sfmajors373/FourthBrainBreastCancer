@@ -420,13 +420,16 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
                           max=count_horitonzal * count_vertical,
                           suffix=bar_suffix)
         print('verbose on')
-        print('count_vertical:' , count_vertical)
-        print('count_horitonzal:' , count_horitonzal)
+        print('count_vertical:', count_vertical)
+        print('count_horitonzal:', count_horitonzal)
 
     min_poi_count = tile_size ** 2 * poi_threshold
 
+    # this is a test to see how we can combine masks
+
     for yi, y in enumerate(range(0, height0, tile_size0 - overlap0)):
-        if verbose: print('row', yi, 'of', count_vertical, ' -- time: ', datetime.now())
+        if verbose:
+            print('row', yi, 'of', count_vertical, ' -- time: ', datetime.now())
         for xi, x in enumerate(range(0, width0, tile_size0 - overlap0)):
             tile = np.asarray(slide.read_region((x, y), level, (tile_size, tile_size)))
             mask = create_otsu_mask_by_threshold(rgb2gray(tile), otsu_threshold)

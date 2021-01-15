@@ -77,7 +77,8 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
         try:
 
             # load the slide into numpy array
-            arr = np.asarray(slide.get_full_slide(level=4))
+            arr = np.asarray(slide.get_full_slide(level=3))
+
             # convert it to gray scale
             arr_gray = rgb2gray(arr)
             # calculate otsu threshold
@@ -121,7 +122,7 @@ def main():
     parser = argparse.ArgumentParser(description='script settings')
 
     parser.add_argument('--magnification_level', '-ml', dest='magnification_level', action='store', default=1,
-                        type=int, help='1 to 8')
+                        type=int, help='corresponds to the different magnification levels available')
     parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=312,
                         type=int, help='size of tiles - should be more than final tile size')
     parser.add_argument('--poi', '-p', dest='poi', action='store', default=0.2,
@@ -149,7 +150,7 @@ def main():
                         type=str, help='tiles folder to store hfds files')
     parser.add_argument('--num_slides_to_process', '-n', dest='num_slides_to_process', action='store', default=0,
                         type=int, help='might want to limit the number of tiles to process for testing')
-    parser.add_argument('--early_stopping_num', '-es', dest='early_stopping_num', action='store', default=1000,
+    parser.add_argument('--early_stopping_num', '-es', dest='early_stopping_num', action='store', default=20000,
                         type=int, help='stop script after number of tiles generated reached for normal and tumor')
 
     args = parser.parse_args()

@@ -2,12 +2,11 @@ from datetime import datetime
 import numpy as np
 
 import skimage.exposure as sk_exposure
-from skimage.filters import threshold_otsu
 import skimage.filters as sk_filters
 from skimage import morphology as sk_morphology
 from PIL import Image, ImageDraw, ImageFont
 
-from .processing import rgb2gray
+from .processing import remove_alpha_channel
 
 ADDITIONAL_NP_STATS = False
 
@@ -314,41 +313,15 @@ def filter_otsu_threshold(np_img, output_type="uint8"):
 
 ########################## ADDITIONS ###############################
 
-def apply_image_filters_light(rgb, equalize=False, slide_num=None):
+def apply_image_filters(rgb, remove_object_size=10000, remove_holes_size=5000):
     """
     Apply filters to image as NumPy array
     """
-    # EQUALIZATION CAN BE VERY SLOW - IMPOSSIBLE - ON HIGH DEFINITION Level 4 to 1. HUGE RAM CONSUMPTION
-
-    if equalize:
-        rgb = filter_adaptive_equalization(rgb, nbins=256, clip_limit=0.01, output_type="bool")
-
+    # in case there is an alpha channel in the image (X, X, 4)
+    rgb = remove_alpha_channel(rgb)
     mask_not_grays = filter_grays(rgb)
-    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=5000, output_type="bool")
-    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=3000, output_type="bool")
-
+    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=remove_object_size, output_type="bool")
+    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=remove_holes_size, output_type="bool")
     rgb = mask_rgb(rgb, mask_remove_holes)
 
     return rgb
-
-
-def apply_image_filters(rgb, equalize=False, slide_num=None):
-    """
-    Apply filters to image as NumPy array
-    """
-    # EQUALIZATION CAN BE VERY SLOW - IMPOSSIBLE - ON HIGH DEFINITION Level 4 to 1. HUGE RAM CONSUMPTION
-
-    if equalize:
-        rgb = filter_adaptive_equalization(rgb, nbins=256, clip_limit=0.01, output_type="bool")
-
-    mask_not_grays = filter_grays(rgb)
-    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=5000, output_type="bool")
-    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=3000, output_type="bool")
-
-    rgb = mask_rgb(rgb, mask_remove_holes)
-    np_gray = rgb2gray(rgb)
-    threshold = threshold_otsu(np_gray)
-    mask = np_gray > threshold
-    rgb = mask_rgb(rgb, mask)
-
-    return rgb, mask
