@@ -425,7 +425,6 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
 
     min_poi_count = tile_size ** 2 * poi_threshold
 
-    # this is a test to see how we can combine masks
 
     for yi, y in enumerate(range(0, height0, tile_size0 - overlap0)):
         if verbose:

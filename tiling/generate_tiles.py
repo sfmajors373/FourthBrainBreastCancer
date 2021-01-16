@@ -29,6 +29,16 @@ def store_slides_hdfs(filepath, slide_name, num_tiles_batch, tiles_batch, tile_s
     h5.close()
 
 
+def get_otsu_threshold(slide, level):
+    # load the slide into numpy array
+    arr = np.asarray(slide.get_full_slide(level=level))
+    # convert it to gray scale
+    arr_gray = rgb2gray(arr)
+    # calculate otsu threshold
+    threshold = threshold_otsu(arr_gray)
+    return threshold
+
+
 def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, max_tiles_per_slide, early_stopping):
     num_slides = len(mgr.annotated_slides)
     tiles_pos = 0
@@ -67,7 +77,7 @@ def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, 
             LOGGER.warning('slide nr {}/{} failed - {}'.format(i, num_slides, e))
 
 
-def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_tiles_per_slide, early_stopping):
+def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_tiles_per_slide, early_stopping=0):
     num_slides = len(mgr.negative_slides)
     tiles_neg = 0
     overlap = int(tile_size * percent_overlap)
@@ -76,13 +86,7 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
         LOGGER.info("Working on {}".format(slide.name))
         try:
 
-            # load the slide into numpy array
-            arr = np.asarray(slide.get_full_slide(level=3))
-
-            # convert it to gray scale
-            arr_gray = rgb2gray(arr)
-            # calculate otsu threshold
-            threshold = threshold_otsu(arr_gray)
+            threshold = get_otsu_threshold(slide, level)
 
             # create a new and unconsumed tile iterator
             # because we have so many  negative slides we do not use overlap
