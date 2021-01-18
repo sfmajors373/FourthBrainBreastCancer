@@ -35,7 +35,7 @@ This is our final project for Fourth Brain
 ### Current development / How to use :
 
 base_directory/dataset_folder
-
+```bash
 base_directory
 ├── dataset_folder
     ├── training
@@ -51,6 +51,7 @@ base_directory
         │   └── test_001.xml
         └── images
             └── test_001.tif
+```
 
 Implemented so far:
 
@@ -63,8 +64,9 @@ Note: During the next stage, we will generate augmented tiles that will be used 
 In order to add randomness, the tiles generated with generate_tiles.py should be larger than the ones used in read_tiles.py
 In our case, we generate tiles of 312 x 312. Later that tile will be randomly cropped into a 256 x 256 tile.
 
-- Read_tiles.py prepares data for the training and validation process. The generator can be directly plugged into a model.fit() call.
+- Read_tiles.py prepares data for the training and validation process. The generator can be directly plugged into a model.fit() call
+The data augmentation and color normalization is made at that level
 
 Next steps:
 - Upstream WSI cleaning in generate_tiles.py to improve the quality of the training set generated
-- Add data augmentation and color normalization- Test dataset generation
+- Test dataset generation
