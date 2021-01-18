@@ -1,20 +1,49 @@
-import numpy as np
-import h5py
 import json
 import math
 from os import listdir
 from os.path import isfile, join
+import h5py
+import numpy as np
 
 
 def hdfs_filepaths(folder):
+    """Read files path in folder.
+
+    Parameters
+    ----------
+    folder : str
+        folder path.
+
+    Returns
+    -------
+    list
+        list of all hdfs files full paths.
+    """
     return [join(folder, f) for f in listdir(folder) if isfile(join(folder, f))]
 
 
 def pos_neg_filenames(folder):
+    """Read files path in folder and return list of positive and negative ones
+
+    Parameters
+    ----------
+    folder : str
+        folder path.
+
+    Returns
+    -------
+    pos : list
+        list of all hdfs files full paths built from positive (tumor) slides.
+    neg : list
+        list of all hdfs files full paths built from negative (normal) slides.
+    tile_size : int
+        tile size of tiles stored in hdfs folder
+    """
+
     pos, neg = list(), list()
-    files = hdfs_filepaths(folder)
-    for f in files:
-        data_file = h5py.File(f,'r',libver='latest',swmr=True)
+    filenames = hdfs_filepaths(folder)
+    for filename in filenames:
+        data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
         # we only have one key as we separate slides
         key = list(data_file.keys())[0]
         data_shape = data_file[key].shape
@@ -22,17 +51,29 @@ def pos_neg_filenames(folder):
         if data_shape[0] == 0:
             continue
         tile_size = data_shape[1]
-        if 'tumor' in f:
-            neg.append(f)
-        elif 'normal' in f:
-            pos.append(f)
+        if 'tumor' in filename:
+            neg.append(filename)
+        elif 'normal' in filename:
+            pos.append(filename)
     return pos, neg, tile_size
 
 
 def combine_datasets(filenames):
+    """Return dataset of tiles for all filenames passed
+
+    Parameters
+    ----------
+    filenames : list
+        file full paths.
+
+    Returns
+    -------
+    np.array
+        array of tiles
+    """
     i = 0
-    for f in filenames:
-        data_file = h5py.File(f, 'r', libver='latest', swmr=True)
+    for filename in filenames:
+        data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
         key = list(data_file.keys())[0]
         if i == 0:
             dset = data_file[key]
@@ -43,12 +84,34 @@ def combine_datasets(filenames):
 
 
 def save_color_normalization_values(mean, std, filename="mean_std.json"):
+    """Store mean and standard deviation of image colors after processing done
+
+    Parameters
+    ----------
+    mean : list
+        list of 3 floats one for each layer in rgb image
+    std : list
+        list of 3 floats one for each layer in rgb image
+    filename : str
+        json file destination name
+    """
     data = {"mean": mean, "std": std}
     with open(filename, 'w') as json_file:
         json.dump(data, json_file)
 
 
 def load_color_normalization_values(filename):
+    """Load mean and standard deviation of image colors
+
+    Parameters
+    ----------
+    filename : str
+        json file where data is stored
+    Returns
+    -------
+    list: list of rgb means
+    list: list of rgb standard deviations
+    """
     if filename is None:
         return [0., 0., 0.], [1., 1., 1.]
     else:
@@ -66,8 +129,8 @@ class TissueDataset:
 
     def __init__(self, folder, percentage=.5, first_part=True, crop_size=256):
         # this is different from the original deep.teaching code
-        # this script assumes we have concatenated all the hdfs files generated in tiling into 1 file
-        # for now, we are going to keep each hdfs file generated separate
+        # this script assumes we have concatenated all the hdfs files generated in tiling
+        # into 1 file for now, we are going to keep each hdfs file generated separate
         self.h5_folder = folder
         self.perc = percentage
         self.first_part = first_part
@@ -102,14 +165,21 @@ class TissueDataset:
     def __get_random_negative_tiles(self, number_tiles):
         return self.__get_tiles_from_path(self.neg_dataset, number_tiles), np.zeros((number_tiles))
 
-    def generator(self, num_neg=10, num_pos=10, data_augm=False, color_normalization_file="CAMELYON16_color_normalization.json"):
+    def generator(self, num_neg=10, num_pos=10, data_augm=False,
+                  color_normalization_file="CAMELYON16_color_normalization.json",
+                  green_layer_only=False):
+
         mean, std = load_color_normalization_values(color_normalization_file)
 
         while True:
-            x, y = self.get_batch(num_neg, num_pos, data_augm)
+            tile, label = self.get_batch(num_neg, num_pos, data_augm)
             for i in [0, 1, 2]:
-                x[:, :, :, i] = (x[:, :, :, i] - mean[i]) / std[i]
-            yield x, y
+                tile[:, :, :, i] = (tile[:, :, :, i] - mean[i]) / std[i]
+
+            if green_layer_only:
+                tile = tile[:, :, :, 1]
+
+            yield tile, label
 
     def get_batch(self, num_neg=10, num_pos=10, data_augm=False):
         x_p, y_p = self.__get_random_positive_tiles(num_pos)
