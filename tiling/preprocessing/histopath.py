@@ -6,7 +6,6 @@ import skimage.filters as sk_filters
 from skimage import morphology as sk_morphology
 from PIL import Image, ImageDraw, ImageFont
 
-from .processing import remove_alpha_channel
 
 ADDITIONAL_NP_STATS = False
 
@@ -334,28 +333,3 @@ def filter_otsu_threshold(np_img, output_type="uint8"):
     np_info(otsu, "Otsu Threshold", t.elapsed())
     return otsu
 
-
-########################## ADDITIONS ###############################
-
-def apply_image_filters(np_img, remove_object_size=10000, remove_holes_size=5000):
-    """
-    Apply filters to image as NumPy array
-    Args:
-    np_img: Image as a NumPy array of type bool.
-    remove_object_size: Remove small objects below this size.
-    remove_holes_size: Remove small holes below this size.
-    output_type: Type of array to return (bool, float, or uint8).
-
-    Returns:
-    NumPy array (bool, float, or uint8).
-    """
-    # in case there is an alpha channel in the image (X, X, 4)
-    np_img = remove_alpha_channel(np_img)
-    mask_not_grays = filter_grays(np_img)
-    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=remove_object_size,
-                                                      output_type="bool")
-    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=remove_holes_size,
-                                                  output_type="bool")
-    np_img = mask_rgb(np_img, mask_remove_holes)
-
-    return np_img

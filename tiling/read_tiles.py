@@ -1,127 +1,7 @@
-import json
 import math
-from os import listdir
-from os.path import isfile, join
-import h5py
 import numpy as np
 
-
-def hdfs_filepaths(folder):
-    """Read files path in folder.
-
-    Parameters
-    ----------
-    folder : str
-        folder path.
-
-    Returns
-    -------
-    list
-        list of all hdfs files full paths.
-    """
-    return [join(folder, f) for f in listdir(folder) if isfile(join(folder, f))]
-
-
-def pos_neg_filenames(folder):
-    """Read files path in folder and return list of positive and negative ones
-
-    Parameters
-    ----------
-    folder : str
-        folder path.
-
-    Returns
-    -------
-    pos : list
-        list of all hdfs files full paths built from positive (tumor) slides.
-    neg : list
-        list of all hdfs files full paths built from negative (normal) slides.
-    tile_size : int
-        tile size of tiles stored in hdfs folder
-    """
-
-    pos, neg = list(), list()
-    filenames = hdfs_filepaths(folder)
-    for filename in filenames:
-        data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
-        # we only have one key as we separate slides
-        key = list(data_file.keys())[0]
-        data_shape = data_file[key].shape
-        # if no tiles were stored - shape (0, x, x, 3) pass
-        if data_shape[0] == 0:
-            continue
-        tile_size = data_shape[1]
-        if 'tumor' in filename:
-            neg.append(filename)
-        elif 'normal' in filename:
-            pos.append(filename)
-    return pos, neg, tile_size
-
-
-def combine_datasets(filenames):
-    """Return dataset of tiles for all filenames passed
-
-    Parameters
-    ----------
-    filenames : list
-        file full paths.
-
-    Returns
-    -------
-    np.array
-        array of tiles
-    """
-    i = 0
-    for filename in filenames:
-        data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
-        key = list(data_file.keys())[0]
-        if i == 0:
-            dset = data_file[key]
-        else:
-            dset = np.concatenate((dset, data_file[key]), axis=0)
-        i += 1
-    return dset
-
-
-def save_color_normalization_values(mean, std, filename="mean_std.json"):
-    """Store mean and standard deviation of image colors after processing done
-
-    Parameters
-    ----------
-    mean : list
-        list of 3 floats one for each layer in rgb image
-    std : list
-        list of 3 floats one for each layer in rgb image
-    filename : str
-        json file destination name
-    """
-    data = {"mean": mean, "std": std}
-    with open(filename, 'w') as json_file:
-        json.dump(data, json_file)
-
-
-def load_color_normalization_values(filename):
-    """Load mean and standard deviation of image colors
-
-    Parameters
-    ----------
-    filename : str
-        json file where data is stored
-    Returns
-    -------
-    list: list of rgb means
-    list: list of rgb standard deviations
-    """
-    if filename is None:
-        return [0., 0., 0.], [1., 1., 1.]
-    else:
-        try:
-            with open(filename, 'r') as json_file:
-                data = json.load(json_file)
-            return data['mean'], data['std']
-        except IOError:
-            print("File not accessible")
-            return [0., 0., 0.], [1., 1., 1.]
+from preprocessing.util import pos_neg_filenames, combine_datasets, load_color_normalization_values
 
 
 class TissueDataset:
@@ -155,7 +35,8 @@ class TissueDataset:
             else:
                 rand_height = 0
                 rand_width = 0
-            tiles[i] = dataset[rnd_idx, rand_height:rand_height+256, rand_width:rand_width+256]
+            tiles[i] = dataset[rnd_idx, rand_height :rand_height + self.crop_size,
+                       rand_width:rand_width + self.crop_size]
         tiles = tiles / 255.
         return tiles
 

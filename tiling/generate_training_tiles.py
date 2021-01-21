@@ -115,7 +115,7 @@ def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, 
     overlap = int(tile_size * percent_overlap)
     for i in range(num_slides):
         slide = mgr.annotated_slides[i]
-        # slide_name = mgr.annotated_slides[i].name
+
         LOGGER.info("Working on {}".format(slide.name))
         try:
             # create a new and unconsumed tile iterator
@@ -180,51 +180,51 @@ def generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_ti
     for i in range(num_slides):
         slide = mgr.negative_slides[i]
         LOGGER.info("Working on {}".format(slide.name))
-        try:
+        # try:
 
-            threshold = get_otsu_threshold(slide, level)
+        threshold = get_otsu_threshold(slide, level)
 
-            # create a new and unconsumed tile iterator
-            # because we have so many  negative slides we do not use overlap
-            tile_iter = split_negative_slide(slide, level=level,
-                                             otsu_threshold=threshold,
-                                             tile_size=tile_size, overlap=overlap,
-                                             poi_threshold=poi)
+        # create a new and unconsumed tile iterator
+        # because we have so many  negative slides we do not use overlap
+        tile_iter = split_negative_slide(slide, level=level,
+                                         otsu_threshold=threshold,
+                                         tile_size=tile_size, overlap=overlap,
+                                         poi_threshold=poi)
 
-            tiles_batch = list()
-            for tile, bounds in tile_iter:
-                if len(tiles_batch) % 10 == 0:
-                    LOGGER.info('negative slide: {}  - tiles so far: {}'.format(i,
-                                                                                len(tiles_batch)))
-                if len(tiles_batch) > max_tiles_per_slide:
-                    break
-                tiles_batch.append(tile)
+        tiles_batch = list()
+        for tile, bounds in tile_iter:
+            if len(tiles_batch) % 10 == 0:
+                LOGGER.info('negative slide: {}  - tiles so far: {}'.format(i,
+                                                                            len(tiles_batch)))
+            if len(tiles_batch) > max_tiles_per_slide:
+                break
+            tiles_batch.append(tile)
 
-            filename = build_filename(slide.name, tile_size, poi, level)
-            num_tiles_batch = len(tiles_batch)
+        filename = build_filename(slide.name, tile_size, poi, level)
+        num_tiles_batch = len(tiles_batch)
 
-            store_slides_hdfs(filename, slide.name, num_tiles_batch, tiles_batch, tile_size)
-            tiles_neg += len(tiles_batch)
-            LOGGER.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides,
-                                                          len(tiles_batch)))
-            LOGGER.info('negative tiles total: {}'.format(tiles_neg))
+        store_slides_hdfs(filename, slide.name, num_tiles_batch, tiles_batch, tile_size)
+        tiles_neg += len(tiles_batch)
+        LOGGER.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides,
+                                                      len(tiles_batch)))
+        LOGGER.info('negative tiles total: {}'.format(tiles_neg))
 
-            # exit if reaching number of tiles generated aimed for
-            if early_stopping > 0:
-                if tiles_neg > early_stopping:
-                    break
+        # exit if reaching number of tiles generated aimed for
+        if early_stopping > 0:
+            if tiles_neg > early_stopping:
+                break
 
-        except Exception as e:
-            LOGGER.warning('slide nr {}/{} failed - {}'.format(i, num_slides, e))
+        # except Exception as e:
+        #     LOGGER.warning('slide nr {}/{} failed - {}'.format(i, num_slides, e))
 
 
 def main():
-    global LOGGER, CAM_BASE_DIR, HDFS_DIR
+    global LOGGER, HDFS_DIR
 
     parser = argparse.ArgumentParser(description='script settings')
 
     parser.add_argument('--magnification_level', '-ml', dest='magnification_level', action='store',
-                        default=1, type=int,
+                        default=2, type=int,
                         help='corresponds to the different magnification levels available')
     parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=312,
                         type=int, help='size of tiles - should be more than final tile size')
@@ -242,7 +242,7 @@ def main():
                         default=1000, type=int, help='max tiles generated per slide')
 
     parser.add_argument('--logging_file', '-f', dest='logging_file', action='store',
-                        default="tiler", type=str, help='path the generated log file')
+                        default="tiler_train", type=str, help='path the generated log file')
     parser.add_argument('--logging_level', '-l', dest='logging_level', action='store', default=1,
                         type=int, help='logging level: 1:debug - 2:warning')
 
@@ -254,13 +254,13 @@ def main():
                         default='CAMELYON16', type=str, help='dataset folder name - CAMELYON16,'
                                                              ' CAMELYON17, etc')
     parser.add_argument('--output_folder', '-of', dest='output_folder', action='store',
-                        default='output_CAMELYON16', type=str,
+                        default='training_CAMELYON16', type=str,
                         help='tiles folder to store hfds files')
     parser.add_argument('--num_slides_to_process', '-n', dest='num_slides_to_process',
                         action='store', default=0, type=int,
                         help='might want to limit the number of tiles to process for testing')
     parser.add_argument('--early_stopping_num', '-es', dest='early_stopping_num', action='store',
-                        default=20000, type=int, help='stop script after number of tiles '
+                        default=5000, type=int, help='stop script after number of tiles '
                                                       'generated reached for normal and tumor')
 
     args = parser.parse_args()
@@ -272,19 +272,19 @@ def main():
     percent_overlap = args.percent_overlap
     max_tiles_per_slide = args.max_tiles_per_slide
     early_stopping = args.early_stopping_num
-    CAM_BASE_DIR = args.base_directory
-    CAM16_DIR = os.path.join(CAM_BASE_DIR, args.dataset_folder)
-    HDFS_DIR = os.path.join(CAM_BASE_DIR, args.output_folder)
+    cam_base_dir = args.base_directory
+    cam16_dir = os.path.join(cam_base_dir, args.dataset_folder)
+    HDFS_DIR = os.path.join(cam_base_dir, args.output_folder)
     logging_level = args.logging_level
-    logging_file = os.path.join(CAM_BASE_DIR, args.logging_file)
+    logging_file = os.path.join(cam_base_dir, args.logging_file)
 
     LOGGER = get_logger(logging_file, logging_level=logging_level)
-    mgr = SlideManager(cam16_dir=CAM16_DIR)
+    mgr = SlideManager(cam16_dir=cam16_dir)
 
     generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap_tumor,
                              max_tiles_per_slide, early_stopping)
-    generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_tiles_per_slide,
-                             early_stopping)
+    # generate_negative_slides(mgr, level, tile_size, poi, percent_overlap, max_tiles_per_slide,
+    #                          early_stopping)
 
 
 if __name__ == "__main__":

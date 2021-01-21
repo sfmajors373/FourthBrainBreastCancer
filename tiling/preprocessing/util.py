@@ -11,7 +11,11 @@ import os
 from PIL import Image, ImageDraw
 from progress.bar import IncrementalBar
 from typing import Dict
-
+import json
+import numpy as np
+from os import listdir
+from os.path import isfile, join
+import h5py
 
 Point = namedtuple('Point', 'x y')
 
@@ -202,3 +206,171 @@ class TileMap:
 
         self.image = draw_polygon(self.image, rel_poly, fill=self._fill,
                                   outline=self._outline)
+
+
+def hdfs_filepaths(folder):
+    """Read files path in folder.
+
+    Parameters
+    ----------
+    folder : str
+        folder path.
+
+    Returns
+    -------
+    list
+        list of all hdfs files full paths.
+    """
+    return [join(folder, f) for f in listdir(folder) if isfile(join(folder, f))]
+
+
+def pos_neg_filenames(folder):
+    """Read files path in folder and return list of positive and negative ones
+
+    Parameters
+    ----------
+    folder : str
+        folder path.
+
+    Returns
+    -------
+    pos : list
+        list of all hdfs files full paths built from positive (tumor) slides.
+    neg : list
+        list of all hdfs files full paths built from negative (normal) slides.
+    tile_size : int
+        tile size of tiles stored in hdfs folder
+    """
+
+    pos, neg = list(), list()
+    filenames = hdfs_filepaths(folder)
+    for filename in filenames:
+        data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
+        # we only have one key as we separate slides
+        key = list(data_file.keys())[0]
+        data_shape = data_file[key].shape
+        # if no tiles were stored - shape (0, x, x, 3) pass
+        if data_shape[0] == 0:
+            continue
+        tile_size = data_shape[1]
+        if 'tumor' in filename:
+            neg.append(filename)
+        elif 'normal' in filename:
+            pos.append(filename)
+    return pos, neg, tile_size
+
+
+def combine_datasets(filenames):
+    """Return dataset of tiles for all filenames passed
+
+    Parameters
+    ----------
+    filenames : list
+        file full paths.
+
+    Returns
+    -------
+    np.array
+        array of tiles
+    """
+    i = 0
+    for filename in filenames:
+        data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
+        key = list(data_file.keys())[0]
+        if i == 0:
+            dset = data_file[key]
+        else:
+            dset = np.concatenate((dset, data_file[key]), axis=0)
+        i += 1
+    return dset
+
+
+def save_color_normalization_values(mean, std, filename="mean_std.json"):
+    """Store mean and standard deviation of image colors after processing done
+
+    Parameters
+    ----------
+    mean : list
+        list of 3 floats one for each layer in rgb image
+    std : list
+        list of 3 floats one for each layer in rgb image
+    filename : str
+        json file destination name
+    """
+    data = {"mean": mean, "std": std}
+    with open(filename, 'w') as json_file:
+        json.dump(data, json_file)
+
+
+def load_color_normalization_values(filename):
+    """Load mean and standard deviation of image colors
+
+    Parameters
+    ----------
+    filename : str
+        json file where data is stored
+    Returns
+    -------
+    list: list of rgb means
+    list: list of rgb standard deviations
+    """
+    if filename is None:
+        return [0., 0., 0.], [1., 1., 1.]
+    else:
+        try:
+            with open(filename, 'r') as json_file:
+                data = json.load(json_file)
+            return data['mean'], data['std']
+        except IOError:
+            print("File not accessible")
+            return [0., 0., 0.], [1., 1., 1.]
+
+
+def build_filename(hdfs_dir, slide_name, tile_size, poi, level):
+    """Generate hdfs filename.
+
+    Parameters
+    ----------
+    slide_name : str
+        slide name.
+    tile_size : int
+        size of tiles used when tiling before saving in hdfs file.
+    poi : float
+        minimum percentage of tissue threshold needed to save a tile
+    level : int
+        magnification layer number of the slide.
+
+    Returns
+    -------
+    string
+        string built from parameters.
+    """
+    filename = '{}_{}x{}_poi{}_level{}.hdf5'.format(slide_name, tile_size, tile_size, poi, level)
+    return os.path.join(hdfs_dir, filename)
+
+
+def store_slides_hdfs(filepath, slide_name, num_tiles_batch, tiles_batch, tile_size):
+    """Create an hdfs file and fill if with tiles extracted from a slide and tiles batch info
+
+    Parameters
+    ----------
+    filepath: str
+        hdfs filename.
+    slide_name : str
+        slide name.
+    num_tiles_batch : int
+        number of tiles in batch saved.
+    tiles_batch: np.array
+        array of tiles to be stored.
+    tile_size : int
+        size of tiles.
+    """
+    # 'w-' creates file, fails if exists
+    h5 = h5py.File(filepath, "w-", libver='latest')
+    # creating a dataset in the file
+    h5.create_dataset(slide_name,
+                      (num_tiles_batch, tile_size, tile_size, 3),
+                      dtype=np.uint8,
+                      data=np.array(tiles_batch),
+                      compression=0)
+    h5.close()
