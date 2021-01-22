@@ -373,12 +373,12 @@ def get_otsu_threshold(slide: Slide, level=3) -> float:
 
 
 def split_negative_slide(slide: Slide, level, otsu_threshold,
-                         poi_threshold=0.01, tile_size=128,
+                         poi_threshold=0.2, tile_size=256,
                          overlap=5, verbose: bool = False, use_upstream_filters=False):
     """Create tiles from a negative slide.
 
     Iterator over the slide in `tile_size`×`tile_size` Tiles. For every tile an otsu mask
-    is created and summed up. Only tiles with sums over the percental threshold
+    is created and summed up. Only tiles with sums over the percentage threshold
     `poi_threshold` will be yield.
 
     Parameters
@@ -431,7 +431,8 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
     downsample = slide.level_downsamples[level]
 
     if use_upstream_filters:
-        mask_filters = apply_image_filters(slide.get_full_slide(level=level),
+
+        mask_filters = apply_image_filters(np.asarray(slide.get_full_slide(level=level)),
                                            remove_object_size=5000, remove_holes_size=3000)
 
     # tile size on level 0
@@ -466,7 +467,7 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
             if use_upstream_filters:
                 x_reduced, y_reduced = int(x/downsample), int(y/downsample)
                 mask_f = mask_filters[y_reduced:y_reduced+tile_size, x_reduced:x_reduced+tile_size]
-                if mask_f.shape[0] == mask_f.shape[1]:
+                if mask_f.shape[0] == mask_f.shape[1] and mask_f.shape[0] == mask.shape[0]:
                     mask = np.logical_and(mask, mask_f)
 
             poi_count = np.sum(mask)
@@ -535,7 +536,7 @@ def split_test_slide(slide: Slide, level, otsu_threshold,
 
     if use_upstream_filters:
         mask_filters = apply_image_filters(slide.get_full_slide(level=level),
-                                           remove_object_size=5000, remove_holes_size=3000)
+                                           remove_object_size=2000, remove_holes_size=500)
 
     width0, height0 = slide.level_dimensions[0]
     downsample = slide.level_downsamples[level]
@@ -582,7 +583,7 @@ def split_test_slide(slide: Slide, level, otsu_threshold,
                     x_reduced, y_reduced = int(x / downsample), int(y / downsample)
                     mask_f = mask_filters[y_reduced:y_reduced + tile_size,
                                           x_reduced:x_reduced + tile_size]
-                    if mask_f.shape[0] == mask_f.shape[1]:
+                    if mask_f.shape[0] == mask_f.shape[1] and mask_f.shape[0] == mask.shape[0]:
                         mask = np.logical_and(mask, mask_f)
 
                 poi_tissue_count = np.sum(mask)
