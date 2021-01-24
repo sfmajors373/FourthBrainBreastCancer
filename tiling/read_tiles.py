@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-from preprocessing.util import pos_neg_filenames, combine_datasets, load_color_normalization_values
+from tiling.preprocessing.util import pos_neg_filenames, combine_datasets, load_color_normalization_values
 
 
 class TissueDataset:
@@ -28,7 +28,7 @@ class TissueDataset:
                 rnd_idx = np.random.randint(0, max_tiles)
             else:
                 rnd_idx = np.random.randint(len_ds - max_tiles, len_ds)
-            ### crop random 256x256
+            ### crop random crop_size x crop_size
             if self.tile_size > self.crop_size:
                 rand_height = np.random.randint(0, self.tile_size - self.crop_size)
                 rand_width = np.random.randint(0, self.tile_size - self.crop_size)
@@ -58,7 +58,7 @@ class TissueDataset:
                 tile[:, :, :, i] = (tile[:, :, :, i] - mean[i]) / std[i]
 
             if green_layer_only:
-                tile = tile[:, :, :, 1]
+                tile = np.dot(tile[..., :3], [0.0, 1.0, 0.0])
 
             yield tile, label
 

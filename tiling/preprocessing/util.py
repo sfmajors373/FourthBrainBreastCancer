@@ -326,7 +326,7 @@ def load_color_normalization_values(filename):
             return [0., 0., 0.], [1., 1., 1.]
 
 
-def build_filename(hdfs_dir, slide_name, tile_size, poi, level):
+def build_filename(slide_name, tile_size, poi, level, hdfs_folder):
     """Generate hdfs filename.
 
     Parameters
@@ -346,7 +346,7 @@ def build_filename(hdfs_dir, slide_name, tile_size, poi, level):
         string built from parameters.
     """
     filename = '{}_{}x{}_poi{}_level{}.hdf5'.format(slide_name, tile_size, tile_size, poi, level)
-    return os.path.join(hdfs_dir, filename)
+    return os.path.join(hdfs_folder, filename)
 
 
 def store_slides_hdfs(filepath, slide_name, num_tiles_batch, tiles_batch, tile_size):
