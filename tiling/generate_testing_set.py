@@ -13,10 +13,10 @@ def main():
     parser.add_argument('--magnification_level', '-ml', dest='magnification_level', action='store',
                         default=3, type=int,
                         help='corresponds to the different magnification levels available')
-    parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=224,
+    parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=256,
                         type=int, help='size of tiles - should be more than final tile size')
     parser.add_argument('--poi', '-p', dest='poi', action='store', default=0.2,
-                        type=float, help='20% of negative tiles must contain tissue')
+                        type=float, help='x% of a tile must contain tissue')
     parser.add_argument('--percent_overlap', '-po', dest='percent_overlap', action='store',
                         default=0.0, type=float, help='')
 
@@ -38,7 +38,7 @@ def main():
     parser.add_argument('--max_tiles_per_slide', '-t', dest='max_tiles_per_slide', action='store',
                         default=1000, type=int, help='max tiles generated per slide')
     parser.add_argument('--early_stopping_num', '-es', dest='early_stopping_num', action='store',
-                        default=2000, type=int, help='stop script after number of tiles '
+                        default=10000, type=int, help='stop script after number of tiles '
                                                      'generated reached for normal and tumor')
 
     args = parser.parse_args()

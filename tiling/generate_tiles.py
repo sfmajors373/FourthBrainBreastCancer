@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from tiling.preprocessing.processing import split_positive_slide, split_negative_slide, get_otsu_threshold
-from tiling.preprocessing.util import build_filename, store_slides_hdfs
+from preprocessing.processing import split_positive_slide, split_negative_slide, get_otsu_threshold
+from preprocessing.util import build_filename, store_slides_hdfs
 
 
 def generate_positive_tiles(mgr, level, tile_size, poi_tumor, percent_overlap, max_tiles_per_slide,

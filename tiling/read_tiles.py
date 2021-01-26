@@ -63,8 +63,10 @@ class TissueDataset:
             yield tile, label
 
     def get_batch(self, num_neg=10, num_pos=10, data_augm=False):
+
         x_p, y_p = self.__get_random_positive_tiles(num_pos)
         x_n, y_n = self.__get_random_negative_tiles(num_neg)
+
         x = np.concatenate((x_p, x_n), axis=0)
         y = np.concatenate((y_p, y_n), axis=0)
         if data_augm:
@@ -74,6 +76,9 @@ class TissueDataset:
             if np.random.randint(0, 2):
                 x = np.flip(x, axis=2)
             x = np.rot90(m=x, k=np.random.randint(0, 4), axes=(1, 2))
+
+
+
         ### randomly arrange in order
         p = np.random.permutation(len(y))
         return x[p], y[p]

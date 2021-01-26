@@ -13,7 +13,7 @@ def main():
     parser.add_argument('--magnification_level', '-ml', dest='magnification_level', action='store',
                         default=3, type=int,
                         help='corresponds to the different magnification levels available')
-    parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=256,
+    parser.add_argument('--tile_size', '-ts', dest='tile_size', action='store', default=312,
                         type=int, help='size of tiles - should be more than final tile size')
     parser.add_argument('--poi', '-p', dest='poi', action='store', default=0.2,
                         type=float, help='x% of negative tiles must contain tissue')
@@ -43,7 +43,7 @@ def main():
                         default='training_CAMELYON16', type=str,
                         help='tiles folder to store hfds files')
     parser.add_argument('--early_stopping_num', '-es', dest='early_stopping_num', action='store',
-                        default=5000, type=int, help='stop script after number of tiles '
+                        default=10000, type=int, help='stop script after number of tiles '
                                                      'generated reached for normal and tumor')
 
     args = parser.parse_args()
