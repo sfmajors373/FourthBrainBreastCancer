@@ -526,3 +526,94 @@ def split_positive_slide(slide: Slide, level, tile_size=128, overlap=5,
 
     if verbose:
         bar.finish()
+
+
+def split_whole_slide(slide: Slide, level, tile_size=256,
+                      color_normalization_file="CAMELYON16_color_normalization.json",
+                      green_layer_only=False, verbose=False) -> Iterator[Tuple[np.ndarray, Tuple]]:
+    """Create tiles from a positive slide.
+
+    Iterator over the slide in `tile_size`×`tile_size` Tiles. For every tile a tumor mask
+    is created and summed up.
+
+    Parameters
+    ----------
+    slide : Slide
+        Input Slide.
+
+    level : int
+        Layer to produce tiles from.
+
+    tile_size : int, optional
+        Pixel size of one side of a square tile the image will be split into.
+        (Default: 128)
+
+    verbose : Boolean, optional
+        If set to True a progress bar will be printed to stdout. (Default: False)
+
+
+    Yields
+    -------
+    image_tile : np.ndarray
+        Array of (`tile_size`, `tile_size`) shape containing tumorous tissue.
+
+    bounds : tuple
+        Tile boundaries on layer 0: ((x, y), (width, height))
+
+    verbose : Boolean, optional
+        If set to True a progress bar will be printed to stdout. (Default: False)
+    """
+
+    width0, height0 = slide.level_dimensions[0]
+    downsample = slide.level_downsamples[level]
+
+    mean, std = load_color_normalization_values(color_normalization_file)
+    # tile size on level 0
+    tile_size0 = int(tile_size * downsample + 0.5)
+
+    if verbose:
+        count_horitonzal = int(math.ceil((width0 - tile_size0) / tile_size0 + 1))
+        count_vertical = int(math.ceil((height0 - tile_size0) / tile_size0 + 1))
+
+        bar_suffix = '%(percent)3d%% | Tiles: %(index)d / %(max)d ' \
+                     '[%(elapsed_fmt)s | eta: %(remaining_fmt)s]'
+        bar = ProgressBar(f'Processing: {slide.name:20}',
+                          max=count_horitonzal * count_vertical,
+                          suffix=bar_suffix)
+
+    for yi, y in enumerate(range(0, height0, tile_size0)):
+        for xi, x in enumerate(range(0, width0, tile_size0)):
+            label = 0
+
+            if level == 0:
+                poi_count = np.sum(mask_row[:, x:(x + tile_size)])
+            else:
+                mask = create_tumor_mask(slide, level, ((x, y), (tile_size, tile_size)))
+                poi_count = np.sum(mask)
+            if verbose:
+                print('Tile ({:2},{:2}) PoI count: {:6,}'.format(yi, xi, poi_count))
+
+            if poi_count >= 0:
+                label = 1
+
+            tile = slide.read_region((x, y), level, (tile_size, tile_size))
+            tile = remove_alpha_channel(np.asarray(tile))
+            ntile = tile / 255.0
+
+            for i in [0, 1, 2]:
+                ntile[:, :, i] = (ntile[:, :, i] - mean[i]) / std[i]
+
+            if green_layer_only:
+                ntile = np.dot(ntile[..., :3], [0.0, 1.0, 0.0])
+
+            # tiles might be shorted on edges, need to resize for segmentation model
+            if ntile.shape != (tile_size, tile_size, 3):
+                ntile = ntile.resize((tile_size, tile_size, 3))
+
+            yield ntile, label, (xi, yi), ((x, y), (tile_size, tile_size))
+
+            if verbose:
+                bar.next()
+
+    if verbose:
+        bar.finish()
