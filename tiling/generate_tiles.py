@@ -34,37 +34,46 @@ def generate_positive_tiles(mgr, level, tile_size, poi_tumor, percent_overlap, m
         slide = mgr.annotated_slides[i]
 
         logger.info("Working on {}".format(slide.name))
-        try:
-            # create a new and unconsumed tile iterator
-            tile_iter = split_positive_slide(slide, level=level,
-                                             tile_size=tile_size, overlap=overlap,
-                                             poi_threshold=poi_tumor)
+        # try:
+        # create a new and unconsumed tile iterator
+        tile_iter = split_positive_slide(slide, level=level,
+                                         tile_size=tile_size, overlap=overlap,
+                                         poi_threshold=poi_tumor)
 
-            tiles_batch = list()
-            for tile, bounds in tile_iter:
-                if len(tiles_batch) % 50 == 0:
-                    logger.info('positive slide: {}  - tiles so far: {}'.format(i,
-                                                                                len(tiles_batch)))
-                if len(tiles_batch) > max_tiles_per_slide:
-                    break
-                tiles_batch.append(tile)
+        tiles_batch, masks_batch = list(), list()
+        for tile, mask, bounds in tile_iter:
+            if len(tiles_batch) % 50 == 0:
+                logger.info('positive slide: {}  - tiles so far: {}'.format(i,
+                                                                            len(tiles_batch)))
+            if len(tiles_batch) > max_tiles_per_slide:
+                break
+            tiles_batch.append(tile)
+            # mask = mask.reshape((tile_size, tile_size, 1)).astype(int)
+            masks_batch.append(mask)
 
-            filename = build_filename(slide.name, tile_size, poi_tumor, level, hdfs_dir)
-            num_tiles_batch = len(tiles_batch)
+        filename = build_filename(slide.name, tile_size, poi_tumor, level, hdfs_dir)
+        filename_masks = build_filename("{}{}".format(slide.name, "_masks"),
+                                        tile_size,
+                                        poi_tumor,
+                                        level,
+                                        hdfs_dir)
+        num_tiles_batch = len(tiles_batch)
 
-            store_slides_hdfs(filename, slide.name, num_tiles_batch, tiles_batch, tile_size)
-            tiles_pos += len(tiles_batch)
-            logger.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides,
-                                                          len(tiles_batch)))
-            logger.info('positive tiles total: {}'.format(tiles_pos))
+        store_slides_hdfs(filename, slide.name, num_tiles_batch, tiles_batch, tile_size)
+        store_slides_hdfs(filename_masks, slide.name, num_tiles_batch, masks_batch, tile_size, mask=True)
 
-            # exit if reaching number of tiles generated aimed for
-            if early_stopping > 0:
-                if tiles_pos > early_stopping:
-                    break
+        tiles_pos += len(tiles_batch)
+        logger.info('{}, {} / {}  - tiles: {}'.format(datetime.now(), i, num_slides,
+                                                      len(tiles_batch)))
+        logger.info('positive tiles total: {}'.format(tiles_pos))
 
-        except Exception as e:
-            logger.warning('slide nr {}/{} failed - {}'.format(i, num_slides, e))
+        # exit if reaching number of tiles generated aimed for
+        if early_stopping > 0:
+            if tiles_pos > early_stopping:
+                break
+
+        # except Exception as e:
+        #     logger.warning('slide nr {}/{} failed - {}'.format(i, num_slides, e))
 
 
 def generate_negative_tiles(mgr, level, tile_size, poi, percent_overlap, max_tiles_per_slide,

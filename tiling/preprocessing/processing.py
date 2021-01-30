@@ -508,18 +508,18 @@ def split_positive_slide(slide: Slide, level, tile_size=128, overlap=5,
         if mask_row.sum() > 0: ### lets skip rows without any tumor
             for xi, x in enumerate(range(0, width0, tile_size0 - overlap0)):
                 
-                if level != 0:
-                    mask = create_tumor_mask(slide, level, ((x, y), (tile_size, tile_size)))
-                    poi_count = np.sum(mask)
-                if level == 0:
-                    poi_count = np.sum(mask_row[:, x:(x+tile_size)])
+                # if level != 0:
+                mask = create_tumor_mask(slide, level, ((x, y), (tile_size, tile_size)))
+                poi_count = np.sum(mask)
+                # if level == 0:
+                #     poi_count = np.sum(mask_row[:, x:(x+tile_size)])
                     
                 logger.debug('Tile ({:2},{:2}) PoI count: {:6,}', yi, xi, poi_count)
                 if poi_count >= min_poi_count:
                     tile = slide.read_region((x, y), level, (tile_size, tile_size))
 
                     tile = remove_alpha_channel(np.asarray(tile))
-                    yield tile, ((x, y), (tile_size0, tile_size0))
+                    yield tile, mask, ((x, y), (tile_size0, tile_size0))
 
                 if verbose:
                     bar.next()

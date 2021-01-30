@@ -58,7 +58,9 @@ class TissueDataset:
                 tile[:, :, :, i] = (tile[:, :, :, i] - mean[i]) / std[i]
 
             if green_layer_only:
-                tile = np.dot(tile[..., :3], [0.0, 1.0, 0.0])
+                tile = (tile[:, :, :, 1] - mean[1]) / std[1]
+                print(tile.shape)
+                # tile = np.dot(tile[..., :3], [0.0, 1.0, 0.0])
 
             yield tile, label
 

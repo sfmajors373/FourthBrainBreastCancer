@@ -349,7 +349,7 @@ def build_filename(slide_name, tile_size, poi, level, hdfs_folder):
     return os.path.join(hdfs_folder, filename)
 
 
-def store_slides_hdfs(filepath, slide_name, num_tiles_batch, tiles_batch, tile_size):
+def store_slides_hdfs(filepath, slide_name, num_tiles_batch, tiles_batch, tile_size, mask=False):
     """Create an hdfs file and fill if with tiles extracted from a slide and tiles batch info
 
     Parameters
@@ -369,7 +369,7 @@ def store_slides_hdfs(filepath, slide_name, num_tiles_batch, tiles_batch, tile_s
     h5 = h5py.File(filepath, "w-", libver='latest')
     # creating a dataset in the file
     h5.create_dataset(slide_name,
-                      (num_tiles_batch, tile_size, tile_size, 3),
+                      (num_tiles_batch, tile_size, tile_size, 3 if not mask else 1),
                       dtype=np.uint8,
                       data=np.array(tiles_batch),
                       compression=0)
