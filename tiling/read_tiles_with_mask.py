@@ -44,7 +44,7 @@ def data_filenames(folder):
 class TissueDataset:
     """Data set for preprocessed WSIs of the CAMELYON16 and CAMELYON17 data set."""
 
-    def __init__(self, folder, percentage=.5, first_part=True, crop_size=256, mask=False):
+    def __init__(self, folder, percentage=.5, first_part=True, crop_size=256):
         self.h5_folder = folder
         self.perc = percentage
         self.first_part = first_part
@@ -77,15 +77,16 @@ class TissueDataset:
                        rand_width:rand_width + self.crop_size]
 
         tiles = tiles / 255.
+
         return tiles, masks
 
     def __get_random_positive_tiles(self, number_tiles):
-        return self.__get_tiles_from_path(self.tiles_dataset, self.masks_dataset, number_tiles), np.ones((number_tiles))
+        return self.__get_tiles_from_path(self.tiles_dataset, self.masks_dataset, number_tiles)
 
     # def __get_random_negative_tiles(self, number_tiles):
     #     return self.__get_tiles_from_path(self.neg_dataset, number_tiles), np.zeros((number_tiles))
 
-    def generator(self, num_neg=10, num_pos=10, data_augm=False,
+    def generator(self, num_neg=10, data_augm=False,
                   color_normalization_file="CAMELYON16_color_normalization.json",
                   green_layer_only=False):
 
@@ -97,7 +98,8 @@ class TissueDataset:
                 tile[:, :, :, i] = (tile[:, :, :, i] - mean[i]) / std[i]
 
             if green_layer_only:
-                tile = np.dot(tile[..., :3], [0.0, 1.0, 0.0])
+                tile[:, :, :, 0] = 1.
+                tile[:, :, :, 0] = 1.
 
             yield tile, mask
 
@@ -106,8 +108,8 @@ class TissueDataset:
         # x_p, y_p = self.__get_random_positive_tiles(num_pos)
         x_n, y_n = self.__get_random_positive_tiles(num_neg)
 
-        x = x_n #np.concatenate((x_p, x_n), axis=0)
-        y = y_n #np.concatenate((y_p, y_n), axis=0)
+        x = np.asarray(x_n) #np.concatenate((x_p, x_n), axis=0)
+        y = np.asarray(y_n) #np.concatenate((y_p, y_n), axis=0)
 
         if data_augm:
             ### some data augmentation mirroring / rotation
@@ -122,7 +124,7 @@ class TissueDataset:
             y = np.rot90(m=y, k=k, axes=(1, 2))
 
         ### randomly arrange in order
-        # p = np.random.permutation(len(y))
-        print(x, y )
-        return x, y #x[p], y[p]
+        p = np.random.permutation(len(y))
+
+        return x[p], y[p]
 
