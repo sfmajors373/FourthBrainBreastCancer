@@ -98,8 +98,8 @@ class TissueDataset:
                 tile[:, :, :, i] = (tile[:, :, :, i] - mean[i]) / std[i]
 
             if green_layer_only:
-                tile[:, :, :, 0] = 1.
-                tile[:, :, :, 0] = 1.
+                tile[:, :, :, 0] = 0.
+                tile[:, :, :, 2] = 0.
 
             yield tile, mask
 
