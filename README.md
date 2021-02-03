@@ -5,19 +5,12 @@ This is our final project for Fourth Brain
 #### Libraries
 | Stage       | Libraries |
 |--           |--         |
-| Prototyping | Pandas, Numpy, Tensorboard    |
+| Prototyping | Pandas, Numpy |
 | WSI Tools   | OpenSlide |
-| DL          | Tensorflow? |
-| API         | ?         |
+| DL          | Tensorflow |
+| API         | FastAPI |
 | Front End   | Dash?     |
 
-
-### Three Phases/Failsafes
-| Phase | Goal | Architecture |  Outcome |
-|--         |--            |--                    |--|
-| 1 | First Thing | Unknown | Unknown |
-| 2 | Second Thing | Unknown | Unknown |
-| 3 | Third Thing  | Unknown | Unknown |
 
 ### Sources
 #### White Papers
