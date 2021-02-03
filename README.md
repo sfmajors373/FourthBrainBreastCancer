@@ -70,3 +70,7 @@ The data augmentation and color normalization is made at that level
 Next steps:
 - Upstream WSI cleaning in generate_tiles.py to improve the quality of the training set generated
 - Test dataset generation
+
+To run backend:
+- Navigate to /app/backend
+- Run `uvicorn app:app --reload`
