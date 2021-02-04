@@ -2,12 +2,10 @@ from datetime import datetime
 import numpy as np
 
 import skimage.exposure as sk_exposure
-from skimage.filters import threshold_otsu
 import skimage.filters as sk_filters
 from skimage import morphology as sk_morphology
 from PIL import Image, ImageDraw, ImageFont
 
-from .processing import rgb2gray
 
 ADDITIONAL_NP_STATS = False
 
@@ -47,13 +45,15 @@ def np_info(np_arr, name=None, elapsed=None):
         elapsed = "---"
 
     if ADDITIONAL_NP_STATS is False:
-        print("%-20s | Time: %-14s  Type: %-7s Shape: %s" % (name, str(elapsed), np_arr.dtype, np_arr.shape))
+        print("%-20s | Time: %-14s  Type: %-7s Shape: %s" % (name, str(elapsed), np_arr.dtype,
+                                                             np_arr.shape))
     else:
         max = np_arr.max()
         min = np_arr.min()
         mean = np_arr.mean()
         is_binary = "T" if (np.unique(np_arr).size == 2) else "F"
-        print("%-20s | Time: %-14s Min: %6.2f  Max: %6.2f  Mean: %6.2f  Binary: %s  Type: %-7s Shape: %s" % (
+        print("%-20s | Time: %-14s Min: %6.2f  Max: %6.2f  Mean: %6.2f  "
+              "Binary: %s  Type: %-7s Shape: %s" % (
             name, str(elapsed), min, max, mean, is_binary, np_arr.dtype, np_arr.shape))
 
 
@@ -90,8 +90,8 @@ def np_to_pil(np_img):
     return Image.fromarray(np_img)
 
 
-def display_img(np_img, text=None, font_path="/Library/Fonts/Arial Bold.ttf", size=48, color=(255, 0, 0),
-                background=(255, 255, 255), border=(0, 0, 0), bg=False):
+def display_img(np_img, text=None, font_path="/Library/Fonts/Arial Bold.ttf", size=48,
+                color=(255, 0, 0), background=(255, 255, 255), border=(0, 0, 0), bg=False):
     """
     Convert a NumPy array to a PIL image, add text to the image, and display the image.
     FROM DEEPATHISTO
@@ -169,7 +169,8 @@ def tissue_percent(np_img):
 
 def filter_adaptive_equalization(np_img, nbins=256, clip_limit=0.01, output_type="uint8"):
     """
-    Filter image (gray or RGB) using adaptive equalization to increase contrast in image, where contrast in local regions
+    Filter image (gray or RGB) using adaptive equalization to increase contrast in image, where
+    contrast in local regions
     is enhanced.
     COMES FROM DEEPHISTOPATH
     Args:
@@ -197,11 +198,13 @@ def filter_grays(rgb, tolerance=15, output_type="bool"):
     FROM DEEPHISTOPATH
     Args:
     np_img: RGB image as a NumPy array.
-    tolerance: Tolerance value to determine how similar the values must be in order to be filtered out
+    tolerance: Tolerance value to determine how similar the values must be in order to be filtered
+    out
     output_type: Type of array to return (bool, float, or uint8).
 
     Returns:
-    NumPy array representing a mask where pixels with similar red, green, and blue values have been masked out.
+    NumPy array representing a mask where pixels with similar red, green, and blue values have been
+    masked out.
     """
     t = Time()
     rgb = rgb.astype(np.int)
@@ -220,17 +223,34 @@ def filter_grays(rgb, tolerance=15, output_type="bool"):
     return result
 
 
-def filter_remove_small_objects(np_img, min_size=3000, avoid_overmask=True, overmask_thresh=95, output_type="uint8"):
+def filter_remove_small_objects(np_img, min_size=3000, avoid_overmask=True, overmask_thresh=95,
+                                output_type="uint8"):
+    """
+    Filter image to remove small objects less than a particular size.
+    FROM DEEPHISTOPATH
+    Args:
+    np_img: Image as a NumPy array of type bool.
+    min_size: Remove small objects below this size.
+    avoid_overmask: Bool for overmask
+    avoid_thresh: int threshold number
+    output_type: Type of array to return (bool, float, or uint8).
+
+    Returns:
+    NumPy array (bool, float, or uint8).
+    """
     t = Time()
     rem_sm = np_img.astype(bool)  # make sure mask is boolean
     rem_sm = sk_morphology.remove_small_objects(rem_sm, min_size=min_size)
     mask_percentage = mask_percent(rem_sm)
     if (mask_percentage >= overmask_thresh) and (min_size >= 1) and (avoid_overmask is True):
         new_min_size = int(min_size / 2)
-        print("Mask percentage %3.2f%% >= overmask threshold %3.2f%% for Remove Small Objs size %d, so try %d" % (
-            mask_percentage, overmask_thresh, min_size, new_min_size))
-        rem_sm = filter_remove_small_objects(np_img, min_size=new_min_size, avoid_overmask=avoid_overmask,
-                                             overmask_thresh=overmask_thresh, output_type=output_type)
+        print("Mask percentage %3.2f%% >= overmask threshold %3.2f%% for "
+              "Remove Small Objs size %d, so try %d" % (mask_percentage, overmask_thresh,
+                                                        min_size, new_min_size))
+        rem_sm = filter_remove_small_objects(np_img, min_size=new_min_size,
+                                             avoid_overmask=avoid_overmask,
+                                             overmask_thresh=overmask_thresh,
+                                             output_type=output_type)
     np_img = rem_sm
 
     if output_type == "bool":
@@ -272,83 +292,44 @@ def filter_remove_small_holes(np_img, min_size=3000, output_type="uint8"):
 
 
 def filter_rgb_to_grayscale(np_img, output_type="uint8"):
-  """
-  Convert an RGB NumPy array to a grayscale NumPy array.
-  Shape (h, w, c) to (h, w).
-  Args:
+    """
+    Convert an RGB NumPy array to a grayscale NumPy array.
+    Shape (h, w, c) to (h, w).
+    Args:
     np_img: RGB Image as a NumPy array.
     output_type: Type of array to return (float or uint8)
-  Returns:
+    Returns:
     Grayscale image as NumPy array with shape (h, w).
-  """
-  t = Time()
-  # Another common RGB ratio possibility: [0.299, 0.587, 0.114]
-  grayscale = np.dot(np_img[..., :3], [0.2125, 0.7154, 0.0721])
-  if output_type != "float":
-    grayscale = grayscale.astype("uint8")
-  np_info(grayscale, "Gray", t.elapsed())
-  return grayscale
+    """
+    t = Time()
+    # Another common RGB ratio possibility: [0.299, 0.587, 0.114]
+    grayscale = np.dot(np_img[..., :3], [0.2125, 0.7154, 0.0721])
+    if output_type != "float":
+        grayscale = grayscale.astype("uint8")
+    np_info(grayscale, "Gray", t.elapsed())
+    return grayscale
 
 
 def filter_otsu_threshold(np_img, output_type="uint8"):
-  """
-  Compute Otsu threshold on image as a NumPy array and return binary image based on pixels above threshold.
-  Args:
+    """
+    Compute Otsu threshold on image as a NumPy array and return binary image based on pixels above
+    threshold.
+    Args:
     np_img: Image as a NumPy array.
     output_type: Type of array to return (bool, float, or uint8).
-  Returns:
-    NumPy array (bool, float, or uint8) where True, 1.0, and 255 represent a pixel above Otsu threshold.
-  """
-  t = Time()
-  otsu_thresh_value = sk_filters.threshold_otsu(np_img)
-  otsu = (np_img > otsu_thresh_value)
-  if output_type == "bool":
-    pass
-  elif output_type == "float":
-    otsu = otsu.astype(float)
-  else:
-    otsu = otsu.astype("uint8") * 255
-  np_info(otsu, "Otsu Threshold", t.elapsed())
-  return otsu
-
-
-########################## ADDITIONS ###############################
-
-def apply_image_filters_light(rgb, equalize=False, slide_num=None):
+    Returns:
+    NumPy array (bool, float, or uint8) where True, 1.0, and 255 represent a pixel
+    above Otsu threshold.
     """
-    Apply filters to image as NumPy array
-    """
-    # EQUALIZATION CAN BE VERY SLOW - IMPOSSIBLE - ON HIGH DEFINITION Level 4 to 1. HUGE RAM CONSUMPTION
+    t = Time()
+    otsu_thresh_value = sk_filters.threshold_otsu(np_img)
+    otsu = (np_img > otsu_thresh_value)
+    if output_type == "bool":
+        pass
+    elif output_type == "float":
+        otsu = otsu.astype(float)
+    else:
+        otsu = otsu.astype("uint8") * 255
+    np_info(otsu, "Otsu Threshold", t.elapsed())
+    return otsu
 
-    if equalize:
-        rgb = filter_adaptive_equalization(rgb, nbins=256, clip_limit=0.01, output_type="bool")
-
-    mask_not_grays = filter_grays(rgb)
-    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=5000, output_type="bool")
-    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=3000, output_type="bool")
-
-    rgb = mask_rgb(rgb, mask_remove_holes)
-
-    return rgb
-
-
-def apply_image_filters(rgb, equalize=False, slide_num=None):
-    """
-    Apply filters to image as NumPy array
-    """
-    # EQUALIZATION CAN BE VERY SLOW - IMPOSSIBLE - ON HIGH DEFINITION Level 4 to 1. HUGE RAM CONSUMPTION
-
-    if equalize:
-        rgb = filter_adaptive_equalization(rgb, nbins=256, clip_limit=0.01, output_type="bool")
-
-    mask_not_grays = filter_grays(rgb)
-    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=5000, output_type="bool")
-    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=3000, output_type="bool")
-
-    rgb = mask_rgb(rgb, mask_remove_holes)
-    np_gray = rgb2gray(rgb)
-    threshold = threshold_otsu(np_gray)
-    mask = np_gray > threshold
-    rgb = mask_rgb(rgb, mask)
-
-    return rgb, mask

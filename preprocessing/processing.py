@@ -14,240 +14,34 @@ import numpy as np
 from skimage import filters
 from skimage.draw import polygon as ski_polygon
 from skimage.measure import label as ski_label
-import skimage.color as sk_color
-import skimage.exposure as sk_exposure
-import skimage.feature as sk_feature
-import skimage.filters as sk_filters
-import skimage.future as sk_future
-from skimage import morphology as sk_morphology
-
-# import skimage.morphology as sk_morphology
-import skimage.segmentation as sk_segmentation
 
 from .datamodel import Slide
-from .util import ProgressBar, LogStyleAdapter, Time, np_info, mask_rgb, mask_percent
+from .util import ProgressBar, LogStyleAdapter, load_color_normalization_values
+from .histopath import filter_grays, filter_remove_small_holes, filter_remove_small_objects
 
 logger = LogStyleAdapter(logging.getLogger('preprocessing.processing'))
 
 
-def filter_adaptive_equalization(np_img, nbins=256, clip_limit=0.01, output_type="uint8"):
+def apply_image_filters(np_img, remove_object_size=5000, remove_holes_size=3000):
     """
-    Filter image (gray or RGB) using adaptive equalization to increase contrast in image, where contrast in local regions
-    is enhanced.
-    COMES FROM DEEPHISTOPATH
-    Args:
-    np_img: Image as a NumPy array (gray or RGB).
-    nbins: Number of histogram bins.
-    clip_limit: Clipping limit where higher value increases contrast.
-    output_type: Type of array to return (float or uint8).
-
-    Returns:
-     NumPy array (float or uint8) with contrast enhanced by adaptive equalization.
-    """
-    t = Time()
-    adapt_equ = sk_exposure.equalize_adapthist(np_img, nbins=nbins, clip_limit=clip_limit)
-    if output_type == "float":
-        pass
-    else:
-        adapt_equ = (adapt_equ * 255).astype("uint8")
-        np_info(adapt_equ, "Adapt Equalization", t.elapsed())
-    return adapt_equ
-
-
-def filter_grays(rgb, tolerance=15, output_type="bool"):
-    """
-    Create a mask to filter out pixels where the red, green, and blue channel values are similar.
-    FROM DEEPHISTOPATH
-    Args:
-    np_img: RGB image as a NumPy array.
-    tolerance: Tolerance value to determine how similar the values must be in order to be filtered out
-    output_type: Type of array to return (bool, float, or uint8).
-
-    Returns:
-    NumPy array representing a mask where pixels with similar red, green, and blue values have been masked out.
-    """
-    t = Time()
-    rgb = rgb.astype(np.int)
-    rg_diff = abs(rgb[:, :, 0] - rgb[:, :, 1]) <= tolerance
-    rb_diff = abs(rgb[:, :, 0] - rgb[:, :, 2]) <= tolerance
-    gb_diff = abs(rgb[:, :, 1] - rgb[:, :, 2]) <= tolerance
-    result = ~(rg_diff & rb_diff & gb_diff)
-
-    if output_type == "bool":
-        pass
-    elif output_type == "float":
-        result = result.astype(float)
-    else:
-        result = result.astype("uint8") * 255
-        np_info(result, "Filter Grays", t.elapsed())
-    return result
-
-
-def filter_remove_small_objects(np_img, min_size=3000, avoid_overmask=True, overmask_thresh=95, output_type="uint8"):
-    t = Time()
-    rem_sm = np_img.astype(bool)  # make sure mask is boolean
-    rem_sm = sk_morphology.remove_small_objects(rem_sm, min_size=min_size)
-    mask_percentage = mask_percent(rem_sm)
-    if (mask_percentage >= overmask_thresh) and (min_size >= 1) and (avoid_overmask is True):
-        new_min_size = int(min_size / 2)
-        print("Mask percentage %3.2f%% >= overmask threshold %3.2f%% for Remove Small Objs size %d, so try %d" % (
-            mask_percentage, overmask_thresh, min_size, new_min_size))
-        rem_sm = filter_remove_small_objects(np_img, min_size=new_min_size, avoid_overmask=avoid_overmask,
-                                             overmask_thresh=overmask_thresh, output_type=output_type)
-    np_img = rem_sm
-
-    if output_type == "bool":
-        pass
-    elif output_type == "float":
-        np_img = np_img.astype(float)
-    else:
-        np_img = np_img.astype("uint8") * 255
-
-    np_info(np_img, "Remove Small Objs", t.elapsed())
-    return np_img
-
-
-def filter_remove_small_holes(np_img, min_size=3000, output_type="uint8"):
-    """
-    Filter image to remove small holes less than a particular size.
-    FROM DEEPHISTOPATH
+    Apply filters to image as NumPy array
     Args:
     np_img: Image as a NumPy array of type bool.
-    min_size: Remove small holes below this size.
+    remove_object_size: Remove small objects below this size.
+    remove_holes_size: Remove small holes below this size.
     output_type: Type of array to return (bool, float, or uint8).
 
     Returns:
     NumPy array (bool, float, or uint8).
     """
-    t = Time()
-
-    rem_sm = sk_morphology.remove_small_holes(np_img, area_threshold=min_size)
-
-    if output_type == "bool":
-        pass
-    elif output_type == "float":
-        rem_sm = rem_sm.astype(float)
-    else:
-        rem_sm = rem_sm.astype("uint8") * 255
-
-    np_info(rem_sm, "Remove Small Holes", t.elapsed())
-    return rem_sm
-
-#
-# def apply_image_filters(np_img, slide_num=None, info=None, save=False, display=False):
-#     """
-#     Apply filters to image as NumPy array and optionally save and/or display filtered images.
-#     FROM DEEPHISTOPATH
-#     Args:
-#     np_img: Image as NumPy array.
-#     slide_num: The slide number (used for saving/displaying).
-#     info: Dictionary of slide information (used for HTML display).
-#     save: If True, save image.
-#     display: If True, display image.
-#
-#     Returns:
-#     Resulting filtered image as a NumPy array.
-#     """
-#     rgb = np_img
-#     save_display(save, display, info, rgb, slide_num, 1, "Original", "rgb")
-#
-#     rgb_enhanced = filter_adaptive_equalization(rgb)
-#     save_display(save, display, info, rgb_enhanced, slide_num, 1, "Adaptive Equalization", "rgb")
-#
-#     mask_not_gray = filter_grays(rgb_enhanced)
-#     rgb_not_gray = mask_rgb(rgb, mask_not_gray)
-#     save_display(save, display, info, rgb_not_gray, slide_num, 3, "Not Gray", "rgb-not-gray")
-#
-#
-#
-#     mask_remove_small = filter_remove_small_objects(mask_gray_green_pens, min_size=500, output_type="bool")
-#     rgb_remove_small = mask_rgb(rgb, mask_remove_small)
-#     save_display(save, display, info, rgb_remove_small, slide_num, 8,
-#                "Not Gray, Not Green, No Pens,\nRemove Small Objects",
-#                "rgb-not-green-not-gray-no-pens-remove-small")
-#
-#     img = rgb_remove_small
-#     return img
-# #
-# #
-# def apply_filters_to_image(slide_num, save=True, display=False):
-#   """
-#   Apply a set of filters to an image and optionally save and/or display filtered images.
-#
-#   Args:
-#     slide_num: The slide number.
-#     save: If True, save filtered images.
-#     display: If True, display filtered images to screen.
-#
-#   Returns:
-#     Tuple consisting of 1) the resulting filtered image as a NumPy array, and 2) dictionary of image information
-#     (used for HTML page generation).
-#   """
-#   t = Time()
-#   print("Processing slide #%d" % slide_num)
-#
-#   info = dict()
-#
-#   if save and not os.path.exists(slide.FILTER_DIR):
-#     os.makedirs(slide.FILTER_DIR)
-#   img_path = slide.get_training_image_path(slide_num)
-#   np_orig = slide.open_image_np(img_path)
-#   filtered_np_img = apply_image_filters(np_orig, slide_num, info, save=save, display=display)
-#
-#   if save:
-#     t1 = Time()
-#     result_path = slide.get_filter_image_result(slide_num)
-#     pil_img = util.np_to_pil(filtered_np_img)
-#     pil_img.save(result_path)
-#     print("%-20s | Time: %-14s  Name: %s" % ("Save Image", str(t1.elapsed()), result_path))
-#
-#     t1 = Time()
-#     thumbnail_path = slide.get_filter_thumbnail_result(slide_num)
-#     slide.save_thumbnail(pil_img, slide.THUMBNAIL_SIZE, thumbnail_path)
-#     print("%-20s | Time: %-14s  Name: %s" % ("Save Thumbnail", str(t1.elapsed()), thumbnail_path))
-#
-#   print("Slide #%03d processing time: %s\n" % (slide_num, str(t.elapsed())))
-#
-#   return filtered_np_img, info
-#
-#
-# def save_display(save, display, info, np_img, slide_num, filter_num, display_text, file_text,
-#                  display_mask_percentage=True):
-#   """
-#   Optionally save an image and/or display the image.
-#
-#   Args:
-#     save: If True, save filtered images.
-#     display: If True, display filtered images to screen.
-#     info: Dictionary to store filter information.
-#     np_img: Image as a NumPy array.
-#     slide_num: The slide number.
-#     filter_num: The filter number.
-#     display_text: Filter display name.
-#     file_text: Filter name for file.
-#     display_mask_percentage: If True, display mask percentage on displayed slide.
-#   """
-#   mask_percentage = None
-#   if display_mask_percentage:
-#     mask_percentage = mask_percent(np_img)
-#     display_text = display_text + "\n(" + mask_percentage_text(mask_percentage) + " masked)"
-#   if slide_num is None and filter_num is None:
-#     pass
-#   elif filter_num is None:
-#     display_text = "S%03d " % slide_num + display_text
-#   elif slide_num is None:
-#     display_text = "F%03d " % filter_num + display_text
-#   else:
-#     display_text = "S%03d-F%03d " % (slide_num, filter_num) + display_text
-#   if display:
-#     util.display_img(np_img, display_text)
-#   if save:
-#     save_filtered_image(np_img, slide_num, filter_num, file_text)
-#   if info is not None:
-#     info[slide_num * 1000 + filter_num] = (slide_num, filter_num, display_text, file_text, mask_percentage)
-
-
-
+    # in case there is an alpha channel in the image (X, X, 4)
+    np_img = remove_alpha_channel(np_img)
+    mask_not_grays = filter_grays(np_img)
+    mask_remove_objects = filter_remove_small_objects(mask_not_grays, min_size=remove_object_size,
+                                                      output_type="bool")
+    mask_remove_holes = filter_remove_small_holes(mask_remove_objects, min_size=remove_holes_size,
+                                                  output_type="bool")
+    return mask_remove_holes
 
 
 def remove_alpha_channel(image: np.ndarray) -> np.ndarray:
@@ -580,7 +374,7 @@ def get_otsu_threshold(slide: Slide, level=3) -> float:
 
 def split_negative_slide(slide: Slide, level, otsu_threshold,
                          poi_threshold=0.01, tile_size=128,
-                         overlap=5, verbose: bool = False):
+                         overlap=5, verbose: bool = False, use_upstream_filters=False):
     """Create tiles from a negative slide.
 
     Iterator over the slide in `tile_size`×`tile_size` Tiles. For every tile an otsu mask
@@ -608,6 +402,10 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
     overlap : int, optional
         Count of pixel overlapping between two tiles. (Default: 30)
 
+    use_upstream_filters: bool
+        clean the slide by applying extra filters and generating a more precise mask
+        for now we keep it to False per default as it is very memory intensive
+
     verbose : Boolean, optional
         If set to True a progress bar will be printed to stdout. (Default: False)
 
@@ -632,13 +430,17 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
     width0, height0 = slide.level_dimensions[0]
     downsample = slide.level_downsamples[level]
 
+    if use_upstream_filters:
+        mask_filters = apply_image_filters(slide.get_full_slide(level=level),
+                                           remove_object_size=5000, remove_holes_size=3000)
+
     # tile size on level 0
     tile_size0 = int(tile_size * downsample + 0.5)
     overlap0 = int(overlap * downsample + 0.5)
 
     if verbose:
         # amount of tiles horizontally and vertically
-        count_horitonzal = int(
+        count_horizontal = int(
             math.ceil((width0 - (tile_size0 - overlap0)) / (tile_size0 - overlap0) + 1))
         count_vertical = int(
             math.ceil((height0 - (tile_size0 - overlap0)) / (tile_size0 - overlap0) + 1))
@@ -646,22 +448,147 @@ def split_negative_slide(slide: Slide, level, otsu_threshold,
         bar_suffix = '%(percent)3d%% | Tiles: %(index)d / %(max)d ' \
                      '[%(elapsed_fmt)s | eta: %(remaining_fmt)s]'
         bar = ProgressBar(f'Processing: {slide.name:20}',
-                          max=count_horitonzal * count_vertical,
+                          max=count_horizontal * count_vertical,
                           suffix=bar_suffix)
         print('verbose on')
-        print('count_vertical:' , count_vertical)
-        print('count_horitonzal:' , count_horitonzal)
+        print('count_vertical:', count_vertical)
+        print('count_horitonzal:', count_horizontal)
 
     min_poi_count = tile_size ** 2 * poi_threshold
 
     for yi, y in enumerate(range(0, height0, tile_size0 - overlap0)):
-        if verbose: print('row', yi, 'of', count_vertical, ' -- time: ', datetime.now())
+        if verbose:
+            print('row', yi, 'of', count_vertical, ' -- time: ', datetime.now())
         for xi, x in enumerate(range(0, width0, tile_size0 - overlap0)):
             tile = np.asarray(slide.read_region((x, y), level, (tile_size, tile_size)))
             mask = create_otsu_mask_by_threshold(rgb2gray(tile), otsu_threshold)
+
+            if use_upstream_filters:
+                x_reduced, y_reduced = int(x/downsample), int(y/downsample)
+                mask_f = mask_filters[y_reduced:y_reduced+tile_size, x_reduced:x_reduced+tile_size]
+                if mask_f.shape[0] == mask_f.shape[1]:
+                    mask = np.logical_and(mask, mask_f)
+
             poi_count = np.sum(mask)
             if poi_count >= min_poi_count:
                 yield remove_alpha_channel(tile), ((x, y), (tile_size0, tile_size0))
+            if verbose:
+                bar.next()
+    if verbose:
+        bar.finish()
+
+
+def split_test_slide(slide: Slide, level, otsu_threshold,
+                     poi_threshold=0.2, tile_size=128,
+                     overlap=0, verbose: bool = False, use_upstream_filters=True):
+    """Create tiles from a negative slide.
+
+    Iterator over the slide in `tile_size`×`tile_size` Tiles. For every tile an otsu mask
+    is created and summed up. Only tiles with sums over the percental threshold
+    `poi_threshold` will be yield.
+
+    Parameters
+    ----------
+    slide : Slide
+        Input Slide.
+
+    level : int
+        Layer to produce tiles from.
+
+    otsu_threshold : float
+        Otsu threshold of the whole slide on layer `level`.
+
+    poi_threshold : float, optional
+        Minimum percentage, 0 to 1, of pixels with tissue per tile. (Default 0.01; 1%)
+
+    tile_size : int
+        Pixel size of one side of a square tile the image will be split into.
+        (Default: 128)
+
+    overlap : int, optional
+        Count of pixel overlapping between two tiles. (Default: 30)
+
+    use_upstream_filters: bool
+        clean the slide by applying extra filters and generating a more precise mask
+        for now we keep it to False per default as it is very memory intensive
+
+    verbose : Boolean, optional
+        If set to True a progress bar will be printed to stdout. (Default: False)
+
+
+    Yields
+    -------
+    image_tile : np.ndarray
+        Array of (`tile_size`, `tile_size`) shape containing tumorous tissue.
+
+    bounds : tuple
+        Tile boundaries on layer 0: ((x, y), (width, height))
+    """
+    if tile_size <= overlap:
+        raise ValueError("Overlap has to be smaller than the tile size.")
+    if overlap < 0:
+        raise ValueError("Overlap can not be negative.")
+    if otsu_threshold < 0:
+        raise ValueError("Otsu threshold can not be negative.")
+    if not 0.0 <= poi_threshold <= 1.0:
+        raise ValueError("PoI threshold has to be between 0 and 1")
+
+    if use_upstream_filters:
+        mask_filters = apply_image_filters(slide.get_full_slide(level=level),
+                                           remove_object_size=5000, remove_holes_size=3000)
+
+    width0, height0 = slide.level_dimensions[0]
+    downsample = slide.level_downsamples[level]
+
+    # tile size on level 0
+    tile_size0 = int(tile_size * downsample + 0.5)
+    overlap0 = int(overlap * downsample + 0.5)
+
+    if verbose:
+        # amount of tiles horizontally and vertically
+        count_horizontal = int(
+            math.ceil((width0 - (tile_size0 - overlap0)) / (tile_size0 - overlap0) + 1))
+        count_vertical = int(
+            math.ceil((height0 - (tile_size0 - overlap0)) / (tile_size0 - overlap0) + 1))
+
+        bar_suffix = '%(percent)3d%% | Tiles: %(index)d / %(max)d ' \
+                     '[%(elapsed_fmt)s | eta: %(remaining_fmt)s]'
+        bar = ProgressBar(f'Processing: {slide.name:20}',
+                          max=count_horizontal * count_vertical,
+                          suffix=bar_suffix)
+        print('verbose on')
+        print('count_vertical:', count_vertical)
+        print('count_horitonzal:', count_horizontal)
+
+    min_poi_count = tile_size ** 2 * poi_threshold if poi_threshold is not None else 1
+
+    for yi, y in enumerate(range(0, height0, tile_size0 - overlap0)):
+        if verbose:
+            print('row', yi, 'of', count_vertical, ' -- time: ', datetime.now())
+        for xi, x in enumerate(range(0, width0, tile_size0 - overlap0)):
+            tile = np.asarray(slide.read_region((x, y), level, (tile_size, tile_size)))
+            # if slide has annotations it is a tumor slide
+            # if tumor mask exists, it's a tumor tile.
+            mask = create_tumor_mask(slide, level, ((x, y), (tile_size, tile_size)))
+            poi_count = np.sum(mask)
+            if poi_count > 1:
+                # return tile np array, coordinates and label = 1
+                yield remove_alpha_channel(tile), ((x, y), (tile_size0, tile_size0)), 1
+            # otherwise it could be empty or regular tissue
+            else:
+                mask = create_otsu_mask_by_threshold(rgb2gray(tile), otsu_threshold)
+
+                if use_upstream_filters:
+                    x_reduced, y_reduced = int(x / downsample), int(y / downsample)
+                    mask_f = mask_filters[y_reduced:y_reduced + tile_size,
+                                          x_reduced:x_reduced + tile_size]
+                    if mask_f.shape[0] == mask_f.shape[1]:
+                        mask = np.logical_and(mask, mask_f)
+
+                poi_tissue_count = np.sum(mask)
+                # if tissue, check that it is above the poi_threshold and label = 0
+                if poi_tissue_count >= min_poi_count:
+                    yield remove_alpha_channel(tile), ((x, y), (tile_size0, tile_size0)), 0
             if verbose:
                 bar.next()
     if verbose:
@@ -762,6 +689,9 @@ def split_positive_slide(slide: Slide, level, tile_size=128, overlap=5,
     bounds : tuple
         Tile boundaries on layer 0: ((x, y), (width, height))
 
+    mask : np.ndarray
+        Array of (`tile_size`, `tile_size`) shape containing binary mask of tumorous tissue.
+
     verbose : Boolean, optional
         If set to True a progress bar will be printed to stdout. (Default: False)
     """
@@ -800,17 +730,137 @@ def split_positive_slide(slide: Slide, level, tile_size=128, overlap=5,
                     mask = create_tumor_mask(slide, level, ((x, y), (tile_size, tile_size)))
                     poi_count = np.sum(mask)
                 if level == 0:
-                    poi_count = np.sum(mask_row[:,x:(x+tile_size)])
+                    poi_count = np.sum(mask_row[:, x:(x+tile_size)])
                     
                 logger.debug('Tile ({:2},{:2}) PoI count: {:6,}', yi, xi, poi_count)
                 if poi_count >= min_poi_count:
                     tile = slide.read_region((x, y), level, (tile_size, tile_size))
 
                     tile = remove_alpha_channel(np.asarray(tile))
-                    yield tile, ((x, y), (tile_size0, tile_size0))
+                    yield tile, mask, ((x, y), (tile_size0, tile_size0))
 
                 if verbose:
                     bar.next()
 
+    if verbose:
+        bar.finish()
+
+
+def generator_live_tiles(slide: Slide, level, otsu_threshold,
+                         poi_threshold=0.1, tile_size=128,
+                         overlap=0, verbose: bool = True, use_upstream_filters=False,
+                         color_normalization_file="CAMELYON16_color_normalization.json",
+                         green_layer_only=False):
+    """Create tiles from a positive slide.
+
+    Iterator over the slide in `tile_size`×`tile_size` Tiles. For every tile a tumor mask
+    is created and summed up.
+
+    Parameters
+    ----------
+    slide : Slide
+        Input Slide.
+
+    level : int
+        Layer to produce tiles from.
+
+    tile_size : int, optional
+        Pixel size of one side of a square tile the image will be split into.
+        (Default: 128)
+
+    overlap : int, optional
+        Count of pixel overlapping between two tiles. (Default: 30)
+
+    poi_threshold : float or None, optional
+        Minimum percentage, 0 to 1, of pixels with metastasis per tile or None for tiles
+        with at least one tumor pixel. (Default: None)
+
+    use_upstream_filters: bool
+        clean the slide by applying extra filters and generating a more precise mask
+
+    verbose : Boolean, optional
+        If set to True a progress bar will be printed to stdout. (Default: False)
+
+
+    Yields
+    -------
+    image_tile : np.ndarray
+        Array of (`tile_size`, `tile_size`) shape containing tumorous tissue.
+
+    bounds : tuple
+        Tile boundaries on layer 0: ((x, y), (width, height))
+
+    verbose : Boolean, optional
+        If set to True a progress bar will be printed to stdout. (Default: False)
+    """
+    if tile_size <= overlap:
+        raise ValueError("Overlap has to be smaller than the tile size.")
+    if overlap < 0:
+        raise ValueError("Overlap can not be negative.")
+    if otsu_threshold < 0:
+        raise ValueError("Otsu threshold can not be negative.")
+    if not 0.0 <= poi_threshold <= 1.0:
+        raise ValueError("PoI threshold has to be between 0 and 1")
+
+    width0, height0 = slide.level_dimensions[0]
+    downsample = slide.level_downsamples[level]
+    mean, std = load_color_normalization_values(color_normalization_file)
+
+    if use_upstream_filters:
+        mask_filters = apply_image_filters(slide.get_full_slide(level=level),
+                                           remove_object_size=5000, remove_holes_size=3000)
+
+    # tile size on level 0
+    tile_size0 = int(tile_size * downsample + 0.5)
+    overlap0 = int(overlap * downsample + 0.5)
+
+    if verbose:
+        # amount of tiles horizontally and vertically
+        count_horitonzal = int(
+            math.ceil((width0 - (tile_size0 - overlap0)) / (tile_size0 - overlap0) + 1))
+        count_vertical = int(
+            math.ceil((height0 - (tile_size0 - overlap0)) / (tile_size0 - overlap0) + 1))
+
+        bar_suffix = '%(percent)3d%% | Tiles: %(index)d / %(max)d ' \
+                     '[%(elapsed_fmt)s | eta: %(remaining_fmt)s]'
+        bar = ProgressBar(f'Processing: {slide.name:20}',
+                          max=count_horitonzal * count_vertical,
+                          suffix=bar_suffix)
+        print('verbose on')
+        print('count_vertical:', count_vertical)
+        print('count_horitonzal:', count_horitonzal)
+
+    min_poi_count = tile_size ** 2 * poi_threshold
+
+    for yi, y in enumerate(range(0, height0, tile_size0 - overlap0)):
+        if verbose:
+            print('row', yi, 'of', count_vertical, ' -- time: ', datetime.now())
+        for xi, x in enumerate(range(0, width0, tile_size0 - overlap0)):
+            if verbose:
+                print('col', xi, 'of', count_horitonzal, ' -- time: ', datetime.now())
+
+            tile = np.asarray(slide.read_region((x, y), level, (tile_size, tile_size)))
+            mask = create_otsu_mask_by_threshold(rgb2gray(tile), otsu_threshold)
+            x_reduced, y_reduced = int(x / downsample), int(y / downsample)
+            if use_upstream_filters:
+
+                mask_f = mask_filters[y_reduced:y_reduced + tile_size,
+                         x_reduced:x_reduced + tile_size]
+                if mask_f.shape[0] == mask_f.shape[1]:
+                    mask = np.logical_and(mask, mask_f)
+            poi_count = np.sum(mask)
+
+            if poi_count >= min_poi_count:
+                tile = remove_alpha_channel(tile)
+                new_tile = np.empty(tile.shape)
+                for i in [0, 1, 2]:
+                    new_tile[:, :, i] = (tile[:, :, i] - mean[i]) / std[i]
+                if green_layer_only:
+                    new_tile = new_tile[:, :, 1]
+
+                yield new_tile, mask, ((x, y), (tile_size0, tile_size0)), \
+                      ((x_reduced, y_reduced), (tile_size, tile_size))
+            if verbose:
+                bar.next()
     if verbose:
         bar.finish()

@@ -149,6 +149,7 @@ def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, 
             masks_batch = list()
             tiles_batch = list()
             for tile, mask, bounds in tile_iter:
+                print('Mask: ', mask)
                 if len(tiles_batch) % 10 == 0:
                     LOGGER.info('positive slide: {}  - tiles so far: {}'.format(i,
                                                                                 len(tiles_batch)))
@@ -156,6 +157,7 @@ def generate_positive_slides(mgr, level, tile_size, poi_tumor, percent_overlap, 
                     break
                 tiles_batch.append(tile)
                 masks_batch.append(mask)
+                print('Mask batch size: ', len(masks_batch))
 
             filename = build_filename(slide.name, tile_size, poi_tumor, level)
             filename_mask = build_filename_mask(slide.name, tile_size, poi_tumor, level)
