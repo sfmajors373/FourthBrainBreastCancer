@@ -274,6 +274,7 @@ def combine_datasets(filenames):
         array of tiles
     """
     i = 0
+    print(len(filenames))
     for filename in filenames:
         data_file = h5py.File(filename, 'r', libver='latest', swmr=True)
         key = list(data_file.keys())[0]

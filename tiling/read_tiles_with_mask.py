@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import os
-from tiling.preprocessing.util import combine_datasets, load_color_normalization_values, hdfs_filepaths
+from preprocessing.util import combine_datasets, load_color_normalization_values, hdfs_filepaths
 import h5py
 
 

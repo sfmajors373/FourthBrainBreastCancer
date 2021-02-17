@@ -411,8 +411,8 @@ class SlideManager:
                 'negative': os.path.join(cam16_dir, 'training/normal'),
                 'positive': os.path.join(cam16_dir, 'training/tumor'),
                 'annotations': os.path.join(cam16_dir, 'training/lesion_annotations'),
-                'test': os.path.join(cam16_dir, 'test/images'), # NEW
-                'test_annotations': os.path.join(cam16_dir, 'test/lesion_annotations'), # NEW
+                'test': os.path.join(cam16_dir, 'testing/images'), # NEW
+                'test_annotations': os.path.join(cam16_dir, 'testing/lesion_annotations'), # NEW
                 'otsu': os.path.join(cam16_dir, 'training/otsu_thresholds.csv')
             }
             self.__load_cam16()
@@ -478,6 +478,8 @@ class SlideManager:
             annotation_path = os.path.join(self._path['cam16']['test_annotations'],
                                            f'{slide_name}.xml')
             if not os.path.exists(annotation_path):
+                print('Slide name: ', slide_name)
+                print('Slide path: ', slide_path)
                 slide = Slide(slide_name, slide_path,
                           otsu_thresholds=otsu_thresholds[slide_name])
             else:

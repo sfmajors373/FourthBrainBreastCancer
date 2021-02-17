@@ -168,13 +168,15 @@ def generate_test_tiles(mgr, level, tile_size, poi, percent_overlap, max_tiles_p
         number of tiles to generate. If 0, ignore and goes through the whole dataset
 
     """
-    # hack for now
+    / hack for now
     poi_tumor = poi
-
+    print('in function')
     num_slides = len(mgr.test_slides)
     tiles_pos, tiles_neg = 0, 0
     overlap = int(tile_size * percent_overlap)
+    print('Num slides: ', num_slides)
     for i in range(num_slides):
+        print('i: ', i)
         slide = mgr.test_slides[i]
         bool_positive_slide = True if slide.annotations else False
         logger.info("Working on {} -  Tumor slide = {}".format(slide.name, bool_positive_slide))

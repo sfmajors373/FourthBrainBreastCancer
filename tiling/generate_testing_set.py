@@ -26,7 +26,7 @@ def main():
                         type=int, help='logging level: 1:debug - 2:warning')
 
     parser.add_argument('--cam_base_dir', '-bd', dest='cam_base_dir', action='store',
-                        default='/media/nico/data/fourthbrain/project/', type=str,
+                        default='/home/sarah/ForthBrainCancer-Dataset/', type=str,
                         help='raw data directory, needs to countain a training folder '
                              'then normal/tumor/lesion_annotations subfolder')
     parser.add_argument('--dataset_folder', '-df', dest='dataset_folder', action='store',
@@ -56,6 +56,8 @@ def main():
 
     logger = get_logger(logging_file, logging_level=logging_level)
     mgr = SlideManager(cam16_dir=cam16_dir)
+    print('MGR: ', len(mgr.test_slides))
+    print('About to start')
 
     generate_test_tiles(mgr, level, tile_size, poi, percent_overlap, max_tiles_per_slide,
                         logger, hdfs_dir, early_stopping)

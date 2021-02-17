@@ -33,7 +33,7 @@ def main():
     parser.add_argument('--logging_level', '-l', dest='logging_level', action='store', default=1,
                         type=int, help='logging level: 1:debug - 2:warning')
     parser.add_argument('--base_directory', '-bd', dest='base_directory', action='store',
-                        default='/media/nico/data/fourthbrain/project/', type=str,
+                        default='/home/sarah/ForthBrainCancer-Dataset', type=str,
                         help='raw data directory, needs to contain a training folder '
                              'then normal/tumor/lesion_annotations subfolder')
     parser.add_argument('--dataset_folder', '-df', dest='dataset_folder', action='store',
